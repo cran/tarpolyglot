@@ -1,8 +1,8 @@
-68ee5c85551d6b3d6f7ab4a615483202 *DESCRIPTION
+7bfd61fa5ea26459a8be510707d4e5e7 *DESCRIPTION
 f50506142d26fc18a949e5b8d309ed79 *LICENSE
 62ac66022f62f088bf5f4208debd9d36 *NAMESPACE
-b43ba315c88945f453189f9f1fdee7d3 *NEWS.md
-d19e23ff7b150b34ae9bc101badaa9b2 *R/crew.R
+8e535e68f22558306ce08da774776ac5 *NEWS.md
+ee5041bf3d9f378c2c4fe2ac3fc6d534 *R/crew.R
 98b6780e52312cafe6aebac5750ecbd2 *R/julia-helpers.R
 7099f5caff06f6c27b0e4bcf5bfdb539 *R/pattern.R
 5cd82365ffefd7f30d722c33887c86ab *R/python-helpers.R
@@ -31,7 +31,7 @@ f8cb04847118a18812475f23f5c87e7d *inst/doc/rust.Rmd
 eb83895db1ee31e20bb3cf228a13a870 *inst/doc/rust.html
 975760b26b09ced8b4714db368a01ed6 *man/compile_rs_lib.Rd
 b3b8ad6aa32f055b0870f1b455c13b0a *man/figures/logo.png
-2cbbd5e320cff6e3325f28156769acff *man/polyglot_controller.Rd
+634e6e312f9b0605ca6c5b42772c3450 *man/polyglot_controller.Rd
 0701148042884ab8e5d3200804227668 *man/run_jl_step.Rd
 dcf73fb0858a7eddcbd55a49da2c3d02 *man/run_py_step.Rd
 b8d929e8ce86c5749c6b928c28059228 *man/run_rs_step.Rd
@@ -56,7 +56,7 @@ efc0dea6e47513ac58864cae097aba87 *man/tarpolyglot_cross.Rd
 deded6c4d412c8416300cbd667f4fcbc *tests/testthat/test-constructors-jl.R
 f023a9ef55d2ca1af499a433cfc4985e *tests/testthat/test-constructors-py.R
 d84e22450f1611c8036f62df2ab66a94 *tests/testthat/test-constructors-rs.R
-91c8b9610c48c82fd7109740422daad0 *tests/testthat/test-crew.R
+d0ec015f57aa069a2ada19f0a9b969f8 *tests/testthat/test-crew.R
 bea8f5d20059b3dd5dae3db69289c7cf *tests/testthat/test-inline-julia.R
 9b9215da2a9b8b4908a0e50a3e213eb3 *tests/testthat/test-inline-python.R
 75d824ae4c50019effb1a74f8353ed96 *tests/testthat/test-inline-rust.R
