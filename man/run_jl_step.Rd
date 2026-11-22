@@ -13,17 +13,18 @@ run_jl_step(
   retrieve = NULL,
   files = NULL,
   julia_version = NULL,
-  julia_home = getOption("tarpolyglot.julia_home"),
+  julia_home = NULL,
   julia_project = NULL,
-  julia_packages = NULL
+  julia_packages = NULL,
+  name = NULL
 )
 }
 \arguments{
-\item{script}{Path to the Julia script to run (required).}
+\item{script}{Path to the Julia script to run (required). Accepts a file path or an inline \code{\link[=tar_code]{tar_code()}} carrier; see the "Script arguments" section below.}
 
-\item{pre_script}{Optional path to an R script run before the Julia script. It is evaluated in the step environment, which already holds the named \code{inputs}. To hand objects to Julia, assign a named list \code{to_jl} in this script; each element is \code{julia_assign()}ed as a variable in Julia's \code{Main} module.}
+\item{pre_script}{Optional path to an R script run before the Julia script. It is evaluated in the step environment, which already holds the named \code{inputs}. To hand objects to Julia, assign a named list \code{to_jl} in this script; each element is \code{julia_assign()}ed as a variable in Julia's \code{Main} module. Accepts a file path or an inline \code{\link[=tar_code]{tar_code()}} carrier; see the "Script arguments" section below.}
 
-\item{post_script}{Optional path to an R script run after the Julia script. It is evaluated in the same environment, which now also holds \code{jl_get(name)} and \code{jl_call(fn, ...)}. In \code{output = "object"} mode the value of its last expression becomes the target value; in \code{output = "file"} mode it must return a character vector of file paths.}
+\item{post_script}{Optional path to an R script run after the Julia script. It is evaluated in the same environment, which now also holds \code{jl_get(name)} and \code{jl_call(fn, ...)}. In \code{output = "object"} mode the value of its last expression becomes the target value; in \code{output = "file"} mode it must return a character vector of file paths. Accepts a file path or an inline \code{\link[=tar_code]{tar_code()}} carrier; see the "Script arguments" section below.}
 
 \item{inputs}{Named list of upstream target values, bound by name into the step environment. Supplied automatically by the constructor.}
 
@@ -35,7 +36,9 @@ run_jl_step(
 
 \item{julia_version}{Optional Julia version to select (e.g. \code{"1.11"}), used when \code{julia_home} is not given. Resolved to a \href{https://github.com/JuliaLang/juliaup}{juliaup}-managed install. Default \code{NULL} uses the computer/global default Julia.}
 
-\item{julia_home, julia_project, julia_packages}{Julia environment selection. \code{julia_home} is the directory containing the julia executable (defaults to \code{getOption("tarpolyglot.julia_home")}; when unset and no \code{julia_version}, JuliaCall discovers Julia on \code{PATH}). \code{julia_project} is a Julia project environment (folder with \code{Project.toml} / \code{Manifest.toml}) to \code{Pkg.activate()}; when \code{NULL}, Julia's default global environment (\verb{@v#.#}) is used. \code{julia_packages} is a character vector of packages to \code{using} before the script. The requested environment takes priority over an ambient \code{JULIA_PROJECT} environment variable (e.g. one set by an RStudio project config and inherited by \code{crew} workers): it is cleared for the duration of the Julia binding, so an explicit \code{julia_project} (or the global environment you get when none is given) wins over it, rather than \code{JULIA_PROJECT} silently selecting a different project. (\code{JULIA_HOME} is not cleared: it is a supported way to point at the default Julia.)}
+\item{julia_home, julia_project, julia_packages}{Julia environment selection. \code{julia_home} is the directory containing the julia executable. Default \code{NULL} falls back to \code{getOption("tarpolyglot.julia_home")}, read here at run time rather than when a target is constructed: a constructor that resolved the option would splice this machine's Julia path into the target's command, making the command hash machine-specific so that a store moved to another computer shows every Julia step as outdated. When the option is unset too and no \code{julia_version} is given, JuliaCall discovers Julia on \code{PATH}. \code{julia_project} is a Julia project environment (folder with \code{Project.toml} / \code{Manifest.toml}) to \code{Pkg.activate()}; when \code{NULL}, Julia's default global environment (\verb{@v#.#}) is used. \code{julia_packages} is a character vector of packages to \code{using} before the script. The requested environment takes priority over an ambient \code{JULIA_PROJECT} environment variable (e.g. one set by an RStudio project config and inherited by \code{crew} workers): it is cleared for the duration of the Julia binding, so an explicit \code{julia_project} (or the global environment you get when none is given) wins over it, rather than \code{JULIA_PROJECT} silently selecting a different project. (\code{JULIA_HOME} is not cleared: it is a supported way to point at the default Julia.)}
+
+\item{name}{Character string, the step's target name. Supplied automatically by the constructor; used only to name this step's log files when \code{\link[=polyglot_controller]{polyglot_controller()}} was given a \code{\link[=polyglot_log]{polyglot_log()}} (\code{NULL} -- the default -- disables logging for a direct call).}
 }
 \value{
 The converted R object (object mode) or a character vector of normalised file paths (file mode).
@@ -43,16 +46,30 @@ The converted R object (object mode) or a character vector of normalised file pa
 \description{
 Julia counterpart of \code{\link[=run_py_step]{run_py_step()}}. Runs, inside a fresh R environment, an optional R pre-script, a Python script (via \pkg{JuliaCall}). This is the function the target built by \code{\link[=tar_target_jl]{tar_target_jl()}} calls; it is exported so that call resolves at pipeline run time but this function is not destined to be called directly by the package users.
 }
+\section{Script arguments}{
+
+
+A worker receives whatever the constructor already resolved, which is one of two things: a \strong{path to a file} on disk, or an \strong{inline carrier} built by \code{\link[=tar_code]{tar_code()}} that holds the code in memory. Both are accepted, so a direct call may pass either.
+
+\code{\link[=tar_target_path]{tar_target_path()}} is deliberately \emph{not} a third form at this level. It is a constructor-level convenience: \code{\link[=tar_target_py]{tar_target_py()}} and the other constructors rewrite it while the pipeline's DAG is built, so that by the time a worker runs it has already become the ordinary file path held by the upstream target. Handing the result of \code{\link[=tar_target_path]{tar_target_path()}} straight to a worker therefore does not resolve to a file. The three forms as written in \verb{_targets.R}, and which of them tracks your edits, are covered in \code{vignette("scripts")}.
+}
+
 \examples{
-\dontrun{
-# Normally invoked by tar_target_jl(); shown here as a direct call.
-# scripts/sum.jl assigns `result`; pre.R builds `to_jl <- list(x = x)`.
-run_jl_step(
-  script = "scripts/sum.jl",
-  pre_script = "scripts/pre.R",
-  inputs = list(x = c(1, 2, 3)),
-  retrieve = "result"
-)
+# This worker starts a live Julia session, so it only runs when
+# TARPOLYGLOT_EXAMPLES=true says a Julia toolchain is available.
+# tar_dir() runs the code in a temporary directory.
+if (identical(Sys.getenv("TARPOLYGLOT_EXAMPLES"), "true")) {
+  targets::tar_dir({
+    # Normally invoked by tar_target_jl(); shown here as a direct call.
+    writeLines("to_jl <- list(x = x)", "pre.R")
+    writeLines("result = sum(x)", "sum.jl")
+    run_jl_step(
+      script = "sum.jl",
+      pre_script = "pre.R",
+      inputs = list(x = c(1, 2, 3)),
+      retrieve = "result"
+    )
+  })
 }
 }
 \seealso{

@@ -15,15 +15,16 @@ run_py_step(
   python_version = NULL,
   env = NULL,
   env_manager = "system",
-  python = NULL
+  python = NULL,
+  name = NULL
 )
 }
 \arguments{
-\item{script}{Path to the Python script to run (required).}
+\item{script}{Path to the Python script to run (required). Accepts a file path or an inline \code{\link[=tar_code]{tar_code()}} carrier; see the "Script arguments" section below.}
 
-\item{pre_script}{Optional path to an R script run before the Python script. It is evaluated in the step environment, which already holds the named \code{inputs}. To hand objects to Python, assign a named list \code{to_py} in this script; each element is pushed as a top-level variable in the Python \verb{__main__} module.}
+\item{pre_script}{Optional path to an R script run before the Python script. It is evaluated in the step environment, which already holds the named \code{inputs}. To hand objects to Python, assign a named list \code{to_py} in this script; each element is pushed as a top-level variable in the Python \verb{__main__} module. Accepts a file path or an inline \code{\link[=tar_code]{tar_code()}} carrier; see the "Script arguments" section below.}
 
-\item{post_script}{Optional path to an R script run after the Python script. It is evaluated in the same environment, which now also holds \code{py} (the reticulate \verb{__main__} module proxy) and \code{py_get(name)}. In \code{output = "object"} mode the value of its last expression becomes the target value; in \code{output = "file"} mode it must return a character vector of file paths.}
+\item{post_script}{Optional path to an R script run after the Python script. It is evaluated in the same environment, which now also holds \code{py} (the reticulate \verb{__main__} module proxy) and \code{py_get(name)}. In \code{output = "object"} mode the value of its last expression becomes the target value; in \code{output = "file"} mode it must return a character vector of file paths. Accepts a file path or an inline \code{\link[=tar_code]{tar_code()}} carrier; see the "Script arguments" section below.}
 
 \item{inputs}{Named list of upstream target values, bound by name into the step environment. Supplied automatically by the constructor.}
 
@@ -36,6 +37,8 @@ run_py_step(
 \item{python_version}{Optional Python version to select (e.g. \code{"3.12"} or \code{">=3.11"}), used only when no environment and no explicit \code{python} path are given. reticulate fetches/selects it (via its uv-backed ephemeral environment) with \code{\link[reticulate:py_require]{reticulate::py_require()}}. Default \code{NULL} uses the computer/global default Python. Use this when you only care about the interpreter \emph{version} and are happy for reticulate to build a \emph{throwaway} environment; for a \emph{pinned, reproducible} environment use \code{env} / \code{env_manager} (or \code{python}) instead.}
 
 \item{env, env_manager, python}{Python environment selection: the reproducible alternatives to \code{python_version}. Use \code{env} + \code{env_manager} to point at an existing environment built by a known tool, or \code{python} for one explicit interpreter path. \code{env_manager} is one of \code{"system"}, \code{"virtualenv"}, \code{"venv"}, \code{"conda"}, \code{"uv"}, \code{"poetry"}; \code{env} is the corresponding virtualenv/conda name or path (or poetry project directory); \code{python} is an explicit interpreter path. Precedence: \code{python} > environment (\code{env}/\code{env_manager}) > \code{python_version} > default. (\code{"virtualenv"}, \code{"venv"} and \code{"uv"} all point at a standard virtualenv, including one created by \code{renv::use_python()}, and behave identically.) For \code{"virtualenv"}/\code{"venv"}/\code{"uv"}/\code{"poetry"}, an \code{env} that is an already-existing directory (relative to the working directory, or absolute) is resolved to an absolute path before use, so a relative venv path (e.g. \code{".venv"}, created with \verb{uv venv .venv}) works as expected; otherwise \code{reticulate::use_virtualenv()} would misread a separator-less relative path as the \emph{name} of an environment under its own virtualenv root instead of a path on disk. A bare name that does not correspond to an existing directory is passed through unchanged, so a genuine named environment (one already registered under that root) still resolves. When \code{python} or an environment is given, the selection also takes priority over an ambient \code{RETICULATE_PYTHON} environment variable (e.g. one set by the RStudio project Python config and inherited by \code{crew} workers), which reticulate would otherwise let silently override the request.}
+
+\item{name}{Character string, the step's target name. Supplied automatically by the constructor; used only to name this step's log files when \code{\link[=polyglot_controller]{polyglot_controller()}} was given a \code{\link[=polyglot_log]{polyglot_log()}} (\code{NULL} -- the default -- disables logging for a direct call).}
 }
 \value{
 The converted R object (object mode) or a character vector of normalised file paths (file mode).
@@ -43,16 +46,31 @@ The converted R object (object mode) or a character vector of normalised file pa
 \description{
 Runs, inside a fresh R environment, an optional R pre-script, a Python script (via \pkg{reticulate}), and an optional R post-script, then returns either a converted R object or a character vector of files. This is the function the target built by \code{\link[=tar_target_py]{tar_target_py()}} calls; it is exported so that call resolves at pipeline run time but this function is not destined to be called directly by the package users.
 }
+\section{Script arguments}{
+
+
+A worker receives whatever the constructor already resolved, which is one of two things: a \strong{path to a file} on disk, or an \strong{inline carrier} built by \code{\link[=tar_code]{tar_code()}} that holds the code in memory. Both are accepted, so a direct call may pass either.
+
+\code{\link[=tar_target_path]{tar_target_path()}} is deliberately \emph{not} a third form at this level. It is a constructor-level convenience: \code{\link[=tar_target_py]{tar_target_py()}} and the other constructors rewrite it while the pipeline's DAG is built, so that by the time a worker runs it has already become the ordinary file path held by the upstream target. Handing the result of \code{\link[=tar_target_path]{tar_target_path()}} straight to a worker therefore does not resolve to a file. The three forms as written in \verb{_targets.R}, and which of them tracks your edits, are covered in \code{vignette("scripts")}.
+}
+
 \examples{
-\dontrun{
-# Normally invoked by tar_target_py(); shown here as a direct call.
-# scripts/sum.py assigns `result`; pre.R builds `to_py <- list(x = x)`.
-run_py_step(
-  script = "scripts/sum.py",
-  pre_script = "scripts/pre.R",
-  inputs = list(x = c(1, 2, 3)),
-  retrieve = "result"
-)
+# This worker binds a live Python interpreter, so it only runs when
+# TARPOLYGLOT_EXAMPLES=true says a Python toolchain is available.
+# tar_dir() runs the code in a temporary directory, so nothing is written
+# to the working directory.
+if (identical(Sys.getenv("TARPOLYGLOT_EXAMPLES"), "true")) {
+  targets::tar_dir({
+    # Normally invoked by tar_target_py(); shown here as a direct call.
+    writeLines("to_py <- list(x = x)", "pre.R")
+    writeLines("result = float(sum(x))", "sum.py")
+    run_py_step(
+      script = "sum.py",
+      pre_script = "pre.R",
+      inputs = list(x = c(1, 2, 3)),
+      retrieve = "result"
+    )
+  })
 }
 }
 \seealso{

@@ -364,6 +364,9 @@ so anything an ordinary target supports (<code>pattern</code>,
 <code>resources</code>, <code>cue</code>, <code>memory</code>,
 <code>error</code>, <code>priority</code>, <code>description</code>, …)
 works exactly as usual.</p>
+<p>These constructors depend on the <a href="https://rstudio.github.io/reticulate/">reticulate</a> R package.
+As a result, any limitation of reticulate is inherited by the
+constructors. Reading reticulate’s own documentation is recommended.</p>
 </div>
 <div id="arguments" class="section level2">
 <h2>Arguments</h2>
@@ -537,37 +540,156 @@ Read a variable with <code>py$result</code> or
 </div>
 <div id="file-output" class="section level2">
 <h2>File output</h2>
-<p>Set <code>output = &quot;file&quot;</code> when the script writes to disk;
-return the path(s) from the post-script (or via <code>files</code> when
-there is no post-script). The target <code>format</code> becomes
-<code>&quot;file&quot;</code> automatically.</p>
-<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="fu">tar_target_py</span>(</span>
-<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>  <span class="at">name =</span> py_file,</span>
-<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>  <span class="at">script =</span> <span class="st">&quot;py/write_csv.py&quot;</span>,       <span class="co"># writes a CSV, stores its path in `out_path`</span></span>
-<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>  <span class="at">inputs =</span> <span class="fu">c</span>(<span class="at">x =</span> <span class="st">&quot;prepared_x&quot;</span>),</span>
-<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a>  <span class="at">pre_script =</span> <span class="st">&quot;R/pre_push.R&quot;</span>,</span>
-<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a>  <span class="at">post_script =</span> <span class="st">&quot;R/post_files.R&quot;</span>,   <span class="co"># returns py_get(&quot;out_path&quot;)</span></span>
-<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a>  <span class="at">output =</span> <span class="st">&quot;file&quot;</span></span>
-<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a>)</span></code></pre></div>
+<p>Set <code>output = &quot;file&quot;</code> when the script writes to disk. The
+target <code>format</code> becomes <code>&quot;file&quot;</code> automatically,
+and the step has to report the path(s) it wrote. There are two ways to
+do that, covered in turn below.</p>
+<div id="returning-the-path-from-the-post-script" class="section level3">
+<h3>Returning the path from the post-script</h3>
+<p>Use this when the script chooses the path, for example a temporary
+file whose name is not known in advance.</p>
+<p><code>py/write_csv.py</code>: writes <code>x</code> to a CSV, keeps
+the path in <code>out_path</code> for the post-script to read back:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="im">import</span> csv</span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a><span class="im">import</span> tempfile</span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a></span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>out_path <span class="op">=</span> tempfile.mktemp(suffix<span class="op">=</span><span class="st">&quot;.csv&quot;</span>)</span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a><span class="cf">with</span> <span class="bu">open</span>(out_path, <span class="st">&quot;w&quot;</span>, newline<span class="op">=</span><span class="st">&quot;&quot;</span>) <span class="im">as</span> f:</span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a>    csv.writer(f).writerow(x)</span></code></pre></div>
+<p><code>R/post_files.R</code>:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">py_get</span>(<span class="st">&quot;out_path&quot;</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="fu">tar_target_py</span>(</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>  <span class="at">name =</span> py_file,</span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>  <span class="at">script =</span> <span class="st">&quot;py/write_csv.py&quot;</span>,</span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>  <span class="at">inputs =</span> <span class="fu">c</span>(<span class="at">x =</span> <span class="st">&quot;prepared_x&quot;</span>),</span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>  <span class="at">pre_script =</span> <span class="st">&quot;R/pre_push.R&quot;</span>,</span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a>  <span class="at">post_script =</span> <span class="st">&quot;R/post_files.R&quot;</span>,   <span class="co"># returns py_get(&quot;out_path&quot;)</span></span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a>  <span class="at">output =</span> <span class="st">&quot;file&quot;</span></span>
+<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+<div id="declaring-the-path-up-front-with-files" class="section level3">
+<h3>Declaring the path up front with <code>files</code></h3>
+<p>Use this when the path is already known as you write
+<code>_targets.R</code>. The script writes to that fixed location,
+<code>files</code> declares it, and no post-script is needed at all.</p>
+<p><code>py/write_fixed.py</code>:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="im">import</span> csv</span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a><span class="im">import</span> os</span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a></span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a>os.makedirs(<span class="st">&quot;out&quot;</span>, exist_ok<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a><span class="cf">with</span> <span class="bu">open</span>(<span class="st">&quot;out/values.csv&quot;</span>, <span class="st">&quot;w&quot;</span>, newline<span class="op">=</span><span class="st">&quot;&quot;</span>) <span class="im">as</span> f:</span>
+<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a>    csv.writer(f).writerow(x)</span></code></pre></div>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="fu">tar_target_py</span>(</span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>  <span class="at">name =</span> py_fixed,</span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a>  <span class="at">script =</span> <span class="st">&quot;py/write_fixed.py&quot;</span>,</span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a>  <span class="at">inputs =</span> <span class="fu">c</span>(<span class="at">x =</span> <span class="st">&quot;prepared_x&quot;</span>),</span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a>  <span class="at">pre_script =</span> <span class="st">&quot;R/pre_push.R&quot;</span>,</span>
+<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a>  <span class="at">output =</span> <span class="st">&quot;file&quot;</span>,</span>
+<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a>  <span class="at">files =</span> <span class="st">&quot;out/values.csv&quot;</span>        <span class="co"># no post-script needed</span></span>
+<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a>)</span></code></pre></div>
+<p><code>files</code> and <code>post_script</code> are alternatives, not
+complements. When both are given the post-script wins and
+<code>files</code> is silently ignored:</p>
+<table>
+<colgroup>
+<col width="50%" />
+<col width="50%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Supplied</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>files</code> only</td>
+<td>the paths in <code>files</code> are returned</td>
+</tr>
+<tr class="even">
+<td><code>post_script</code> only</td>
+<td>the value of the post-script’s last expression is returned</td>
+</tr>
+<tr class="odd">
+<td>both</td>
+<td>the post-script wins, <code>files</code> is ignored</td>
+</tr>
+<tr class="even">
+<td>neither</td>
+<td>error: <code>output = &quot;file&quot;</code> needs a <code>post_script</code>
+returning paths, or <code>files</code></td>
+</tr>
+</tbody>
+</table>
+</div>
 </div>
 <div id="dynamic-branching" class="section level2">
 <h2>Dynamic branching</h2>
 <p><code>inputs</code> are real dependencies, so <code>pattern</code>
 branches them:</p>
-<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">list</span>(</span>
-<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>  <span class="fu">tar_target</span>(chunks, <span class="fu">list</span>(<span class="dv">10</span>, <span class="dv">20</span>, <span class="dv">30</span>)),</span>
-<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>  <span class="fu">tar_target_py</span>(</span>
-<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>    <span class="at">name =</span> py_branch,</span>
-<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a>    <span class="at">script =</span> <span class="st">&quot;py/compute.py&quot;</span>,</span>
-<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a>    <span class="at">inputs =</span> <span class="fu">c</span>(<span class="at">x =</span> <span class="st">&quot;chunks&quot;</span>),</span>
-<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a>    <span class="at">pre_script =</span> <span class="st">&quot;R/pre_push.R&quot;</span>,</span>
-<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a>    <span class="at">retrieve =</span> <span class="st">&quot;result&quot;</span>,</span>
-<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a>    <span class="at">pattern =</span> <span class="fu">map</span>(chunks)           <span class="co"># 3 branches: x = 10, 20, 30</span></span>
-<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a>  )</span>
-<span id="cb7-11"><a href="#cb7-11" tabindex="-1"></a>)</span></code></pre></div>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="fu">list</span>(</span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a>  <span class="fu">tar_target</span>(chunks, <span class="fu">list</span>(<span class="dv">10</span>, <span class="dv">20</span>, <span class="dv">30</span>)),</span>
+<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a>  <span class="fu">tar_target_py</span>(</span>
+<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a>    <span class="at">name =</span> py_branch,</span>
+<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a>    <span class="at">script =</span> <span class="st">&quot;py/compute.py&quot;</span>,</span>
+<span id="cb11-6"><a href="#cb11-6" tabindex="-1"></a>    <span class="at">inputs =</span> <span class="fu">c</span>(<span class="at">x =</span> <span class="st">&quot;chunks&quot;</span>),</span>
+<span id="cb11-7"><a href="#cb11-7" tabindex="-1"></a>    <span class="at">pre_script =</span> <span class="st">&quot;R/pre_push.R&quot;</span>,</span>
+<span id="cb11-8"><a href="#cb11-8" tabindex="-1"></a>    <span class="at">retrieve =</span> <span class="st">&quot;result&quot;</span>,</span>
+<span id="cb11-9"><a href="#cb11-9" tabindex="-1"></a>    <span class="at">pattern =</span> <span class="fu">map</span>(chunks)           <span class="co"># 3 branches: x = 10, 20, 30</span></span>
+<span id="cb11-10"><a href="#cb11-10" tabindex="-1"></a>  )</span>
+<span id="cb11-11"><a href="#cb11-11" tabindex="-1"></a>)</span></code></pre></div>
 <p>Run the branches in parallel by setting a <code>crew</code>
 controller (see <code>vignette(&quot;get_started&quot;)</code>, the “Parallelism
-and isolation with crew” section).</p>
+and isolation with crew” section, which also covers
+<code>polyglot_controller(log = polyglot_log(...))</code> for per-step
+stdout/stderr log files, including a caveat specific to branching there,
+since every branch of a pattern shares one log file).</p>
+</div>
+<div id="parallel-computing-multiprocessing" class="section level2">
+<h2>Parallel computing (multiprocessing)</h2>
+<p>Python’s own <code>multiprocessing</code> /
+<code>concurrent.futures.ProcessPoolExecutor</code> work correctly
+through <code>run_py_step()</code>, confirmed both in the main session
+and inside a real <code>crew</code> worker, with one hard constraint:
+the pool has to be created and used at the <strong>top level of the
+script itself</strong>, guarded by the usual
+<code>if __name__ == &quot;__main__&quot;:</code>, not inside a function that the
+script only defines and that a later <code>post_script</code> calls.
+That second shape breaks on Windows:
+<code>reticulate::py_run_file()</code> runs your script directly into
+<code>__main__</code>, and when the pool is created later from a
+separate reticulate call, the worker processes
+<code>multiprocessing</code> spawns cannot find the function it needs to
+unpickle, and the pool fails with a pickling error. Doing the parallel
+work at the top level of <code>script</code>, with <code>retrieve</code>
+(or a top-level result variable a <code>post_script</code> reads with
+<code>py_get()</code>) to bring the value back, avoids this entirely,
+and is also the standard, portable way to write this in plain
+Python:</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a><span class="co"># py/parallel_sqrt.py</span></span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a><span class="im">from</span> concurrent.futures <span class="im">import</span> ProcessPoolExecutor</span>
+<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a></span>
+<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a><span class="kw">def</span> _sqrt_one(v):</span>
+<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a>    <span class="cf">return</span> v <span class="op">**</span> <span class="fl">0.5</span></span>
+<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a></span>
+<span id="cb12-7"><a href="#cb12-7" tabindex="-1"></a><span class="cf">if</span> <span class="va">__name__</span> <span class="op">==</span> <span class="st">&quot;__main__&quot;</span>:</span>
+<span id="cb12-8"><a href="#cb12-8" tabindex="-1"></a>    <span class="cf">with</span> ProcessPoolExecutor(max_workers<span class="op">=</span>n_workers) <span class="im">as</span> ex:</span>
+<span id="cb12-9"><a href="#cb12-9" tabindex="-1"></a>        result <span class="op">=</span> <span class="bu">list</span>(ex.<span class="bu">map</span>(_sqrt_one, x))</span></code></pre></div>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="fu">tar_target_py</span>(</span>
+<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a>  <span class="at">name =</span> py_parallel,</span>
+<span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a>  <span class="at">script =</span> <span class="st">&quot;py/parallel_sqrt.py&quot;</span>,</span>
+<span id="cb13-4"><a href="#cb13-4" tabindex="-1"></a>  <span class="at">inputs =</span> <span class="fu">c</span>(<span class="at">x =</span> <span class="st">&quot;big_x&quot;</span>, <span class="at">n_workers =</span> <span class="st">&quot;n_workers&quot;</span>),</span>
+<span id="cb13-5"><a href="#cb13-5" tabindex="-1"></a>  <span class="at">pre_script =</span> <span class="fu">tar_code</span>({ to_py <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">x =</span> x, <span class="at">n_workers =</span> n_workers) }),</span>
+<span id="cb13-6"><a href="#cb13-6" tabindex="-1"></a>  <span class="at">retrieve =</span> <span class="st">&quot;result&quot;</span></span>
+<span id="cb13-7"><a href="#cb13-7" tabindex="-1"></a>)</span></code></pre></div>
+<p>The same oversubscription concern from
+<code>vignette(&quot;get_started&quot;)</code> applies here too: a
+<code>crew</code> worker is a full process with access to every core,
+not a slice of one, so several workers each spawning their own
+multiprocessing pool at once can oversubscribe the machine. Put the
+parallel-heavy step on <code>deployment = &quot;main&quot;</code> if you have more
+than one, or cap <code>n_workers</code> per step, for the same reason
+described there.</p>
 </div>
 <div id="choosing-the-python-environment" class="section level2">
 <h2>Choosing the Python environment</h2>
@@ -657,80 +779,93 @@ is expanded to an absolute path, so <code>env = &quot;.venv&quot;</code> works; 
 bare name that is not a directory is passed through unchanged, so a
 genuine named environment still resolves. Setting <code>env</code> while
 <code>env_manager = &quot;system&quot;</code> is an error.</p>
+<p>The use cases below are about the environment-selection arguments,
+not what each script computes, so the script bodies are deliberately
+trivial, one line assigning the variable named in
+<code>retrieve</code>.</p>
 <div id="use-case-1-global-system-default" class="section level3">
 <h3>Use case 1: global / system default</h3>
 <p>Set nothing; reticulate uses the computer’s default Python (on recent
 versions, an ephemeral uv-managed one provisioned on first use).
-Convenient for exploration; pin a real environment for
-reproducibility.</p>
-<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="fu">tar_target_py</span>(</span>
-<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>  <span class="at">name =</span> probe,</span>
-<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>  <span class="at">script =</span> <span class="st">&quot;py/probe.py&quot;</span>,</span>
-<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>  <span class="at">retrieve =</span> <span class="st">&quot;result&quot;</span></span>
-<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>  <span class="co"># no env / env_manager / python -&gt; computer default Python</span></span>
-<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a>)</span></code></pre></div>
+Convenient for exploration; pin a real environment for reproducibility.
+<code>py/probe.py</code> (reused in use case 5 below):</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a><span class="im">import</span> sys</span>
+<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a>result <span class="op">=</span> sys.executable</span></code></pre></div>
+<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a><span class="fu">tar_target_py</span>(</span>
+<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a>  <span class="at">name =</span> probe,</span>
+<span id="cb15-3"><a href="#cb15-3" tabindex="-1"></a>  <span class="at">script =</span> <span class="st">&quot;py/probe.py&quot;</span>,</span>
+<span id="cb15-4"><a href="#cb15-4" tabindex="-1"></a>  <span class="at">retrieve =</span> <span class="st">&quot;result&quot;</span></span>
+<span id="cb15-5"><a href="#cb15-5" tabindex="-1"></a>  <span class="co"># no env / env_manager / python -&gt; computer default Python</span></span>
+<span id="cb15-6"><a href="#cb15-6" tabindex="-1"></a>)</span></code></pre></div>
 </div>
 <div id="use-case-2-a-pinned-uv-virtualenv-recommended" class="section level3">
 <h3>Use case 2: a pinned uv virtualenv (recommended)</h3>
 <p>Create it once, then point to it. Reproducible: the exact package set
 is reused every run.</p>
-<div class="sourceCode" id="cb9"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="ex">uv</span> venv .venv</span>
-<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a><span class="ex">uv</span> pip install <span class="at">--python</span> .venv/Scripts/python.exe numpy pandas scikit-learn</span></code></pre></div>
-<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="fu">tar_target_py</span>(</span>
-<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>  <span class="at">name =</span> fit,</span>
-<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a>  <span class="at">script =</span> <span class="st">&quot;py/fit.py&quot;</span>,</span>
-<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a>  <span class="at">env_manager =</span> <span class="st">&quot;uv&quot;</span>,</span>
-<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a>  <span class="at">env =</span> <span class="st">&quot;.venv&quot;</span>,</span>
-<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a>  <span class="at">retrieve =</span> <span class="st">&quot;model&quot;</span></span>
-<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a>)</span></code></pre></div>
+<div class="sourceCode" id="cb16"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a><span class="ex">uv</span> venv .venv</span>
+<span id="cb16-2"><a href="#cb16-2" tabindex="-1"></a><span class="ex">uv</span> pip install <span class="at">--python</span> .venv/Scripts/python.exe numpy pandas scikit-learn</span></code></pre></div>
+<p><code>py/fit.py</code>:</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a>model <span class="op">=</span> {<span class="st">&quot;coef&quot;</span>: <span class="fl">1.5</span>, <span class="st">&quot;intercept&quot;</span>: <span class="fl">0.2</span>}</span></code></pre></div>
+<div class="sourceCode" id="cb18"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" tabindex="-1"></a><span class="fu">tar_target_py</span>(</span>
+<span id="cb18-2"><a href="#cb18-2" tabindex="-1"></a>  <span class="at">name =</span> fit,</span>
+<span id="cb18-3"><a href="#cb18-3" tabindex="-1"></a>  <span class="at">script =</span> <span class="st">&quot;py/fit.py&quot;</span>,</span>
+<span id="cb18-4"><a href="#cb18-4" tabindex="-1"></a>  <span class="at">env_manager =</span> <span class="st">&quot;uv&quot;</span>,</span>
+<span id="cb18-5"><a href="#cb18-5" tabindex="-1"></a>  <span class="at">env =</span> <span class="st">&quot;.venv&quot;</span>,</span>
+<span id="cb18-6"><a href="#cb18-6" tabindex="-1"></a>  <span class="at">retrieve =</span> <span class="st">&quot;model&quot;</span></span>
+<span id="cb18-7"><a href="#cb18-7" tabindex="-1"></a>)</span></code></pre></div>
 </div>
 <div id="use-case-3-a-poetry-project" class="section level3">
 <h3>Use case 3: a poetry project</h3>
 <p>Give the <strong>project directory</strong> (the folder with
 <code>pyproject.toml</code>); its virtualenv is resolved for you with
-<code>poetry env info -p</code>.</p>
-<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="fu">tar_target_py</span>(</span>
-<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a>  <span class="at">name =</span> embed,</span>
-<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a>  <span class="at">script =</span> <span class="st">&quot;py/embed.py&quot;</span>,</span>
-<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a>  <span class="at">env_manager =</span> <span class="st">&quot;poetry&quot;</span>,</span>
-<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a>  <span class="at">env =</span> <span class="st">&quot;path/to/poetry_project&quot;</span>,</span>
-<span id="cb11-6"><a href="#cb11-6" tabindex="-1"></a>  <span class="at">retrieve =</span> <span class="st">&quot;vectors&quot;</span></span>
-<span id="cb11-7"><a href="#cb11-7" tabindex="-1"></a>)</span></code></pre></div>
+<code>poetry env info -p</code>. <code>py/embed.py</code>:</p>
+<div class="sourceCode" id="cb19"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" tabindex="-1"></a>vectors <span class="op">=</span> [[<span class="fl">0.1</span>, <span class="fl">0.2</span>], [<span class="fl">0.3</span>, <span class="fl">0.4</span>]]</span></code></pre></div>
+<div class="sourceCode" id="cb20"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" tabindex="-1"></a><span class="fu">tar_target_py</span>(</span>
+<span id="cb20-2"><a href="#cb20-2" tabindex="-1"></a>  <span class="at">name =</span> embed,</span>
+<span id="cb20-3"><a href="#cb20-3" tabindex="-1"></a>  <span class="at">script =</span> <span class="st">&quot;py/embed.py&quot;</span>,</span>
+<span id="cb20-4"><a href="#cb20-4" tabindex="-1"></a>  <span class="at">env_manager =</span> <span class="st">&quot;poetry&quot;</span>,</span>
+<span id="cb20-5"><a href="#cb20-5" tabindex="-1"></a>  <span class="at">env =</span> <span class="st">&quot;path/to/poetry_project&quot;</span>,</span>
+<span id="cb20-6"><a href="#cb20-6" tabindex="-1"></a>  <span class="at">retrieve =</span> <span class="st">&quot;vectors&quot;</span></span>
+<span id="cb20-7"><a href="#cb20-7" tabindex="-1"></a>)</span></code></pre></div>
 <p>If the <code>poetry</code> on <code>PATH</code> is not the one you
 want, select a specific executable with
 <code>options(tarpolyglot.poetry = &quot;/path/to/poetry&quot;)</code>.</p>
 </div>
 <div id="use-case-4-a-plain-venv-or-a-conda-env" class="section level3">
 <h3>Use case 4: a plain venv or a conda env</h3>
-<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a><span class="co"># python -m venv .venv</span></span>
-<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a><span class="fu">tar_target_py</span>(</span>
-<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a>  <span class="at">name =</span> score,</span>
-<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a>  <span class="at">script =</span> <span class="st">&quot;py/score.py&quot;</span>,</span>
-<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a>  <span class="at">env_manager =</span> <span class="st">&quot;venv&quot;</span>,</span>
-<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a>  <span class="at">env =</span> <span class="st">&quot;.venv&quot;</span>,</span>
-<span id="cb12-7"><a href="#cb12-7" tabindex="-1"></a>  <span class="at">retrieve =</span> <span class="st">&quot;result&quot;</span></span>
-<span id="cb12-8"><a href="#cb12-8" tabindex="-1"></a>)</span>
-<span id="cb12-9"><a href="#cb12-9" tabindex="-1"></a></span>
-<span id="cb12-10"><a href="#cb12-10" tabindex="-1"></a><span class="co"># a named conda environment</span></span>
-<span id="cb12-11"><a href="#cb12-11" tabindex="-1"></a><span class="fu">tar_target_py</span>(</span>
-<span id="cb12-12"><a href="#cb12-12" tabindex="-1"></a>  <span class="at">name =</span> classify,</span>
-<span id="cb12-13"><a href="#cb12-13" tabindex="-1"></a>  <span class="at">script =</span> <span class="st">&quot;py/classify.py&quot;</span>,</span>
-<span id="cb12-14"><a href="#cb12-14" tabindex="-1"></a>  <span class="at">env_manager =</span> <span class="st">&quot;conda&quot;</span>,</span>
-<span id="cb12-15"><a href="#cb12-15" tabindex="-1"></a>  <span class="at">env =</span> <span class="st">&quot;my_conda_env&quot;</span>,</span>
-<span id="cb12-16"><a href="#cb12-16" tabindex="-1"></a>  <span class="at">retrieve =</span> <span class="st">&quot;labels&quot;</span></span>
-<span id="cb12-17"><a href="#cb12-17" tabindex="-1"></a>)</span></code></pre></div>
+<p><code>py/score.py</code>:</p>
+<div class="sourceCode" id="cb21"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" tabindex="-1"></a>result <span class="op">=</span> <span class="fl">0.87</span></span></code></pre></div>
+<p><code>py/classify.py</code>:</p>
+<div class="sourceCode" id="cb22"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" tabindex="-1"></a>labels <span class="op">=</span> [<span class="st">&quot;setosa&quot;</span>, <span class="st">&quot;versicolor&quot;</span>, <span class="st">&quot;virginica&quot;</span>]</span></code></pre></div>
+<div class="sourceCode" id="cb23"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" tabindex="-1"></a><span class="co"># python -m venv .venv</span></span>
+<span id="cb23-2"><a href="#cb23-2" tabindex="-1"></a><span class="fu">tar_target_py</span>(</span>
+<span id="cb23-3"><a href="#cb23-3" tabindex="-1"></a>  <span class="at">name =</span> score,</span>
+<span id="cb23-4"><a href="#cb23-4" tabindex="-1"></a>  <span class="at">script =</span> <span class="st">&quot;py/score.py&quot;</span>,</span>
+<span id="cb23-5"><a href="#cb23-5" tabindex="-1"></a>  <span class="at">env_manager =</span> <span class="st">&quot;venv&quot;</span>,</span>
+<span id="cb23-6"><a href="#cb23-6" tabindex="-1"></a>  <span class="at">env =</span> <span class="st">&quot;.venv&quot;</span>,</span>
+<span id="cb23-7"><a href="#cb23-7" tabindex="-1"></a>  <span class="at">retrieve =</span> <span class="st">&quot;result&quot;</span></span>
+<span id="cb23-8"><a href="#cb23-8" tabindex="-1"></a>)</span>
+<span id="cb23-9"><a href="#cb23-9" tabindex="-1"></a></span>
+<span id="cb23-10"><a href="#cb23-10" tabindex="-1"></a><span class="co"># a named conda environment</span></span>
+<span id="cb23-11"><a href="#cb23-11" tabindex="-1"></a><span class="fu">tar_target_py</span>(</span>
+<span id="cb23-12"><a href="#cb23-12" tabindex="-1"></a>  <span class="at">name =</span> classify,</span>
+<span id="cb23-13"><a href="#cb23-13" tabindex="-1"></a>  <span class="at">script =</span> <span class="st">&quot;py/classify.py&quot;</span>,</span>
+<span id="cb23-14"><a href="#cb23-14" tabindex="-1"></a>  <span class="at">env_manager =</span> <span class="st">&quot;conda&quot;</span>,</span>
+<span id="cb23-15"><a href="#cb23-15" tabindex="-1"></a>  <span class="at">env =</span> <span class="st">&quot;my_conda_env&quot;</span>,</span>
+<span id="cb23-16"><a href="#cb23-16" tabindex="-1"></a>  <span class="at">retrieve =</span> <span class="st">&quot;labels&quot;</span></span>
+<span id="cb23-17"><a href="#cb23-17" tabindex="-1"></a>)</span></code></pre></div>
 </div>
 <div id="use-case-5-pin-just-the-version" class="section level3">
 <h3>Use case 5: pin just the version</h3>
 <p>To fix the interpreter <em>version</em> without naming an
 environment, use <code>python_version</code> (leaves the environment at
 the default, uv-managed one):</p>
-<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="fu">tar_target_py</span>(</span>
-<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a>  <span class="at">name =</span> probe_ver,</span>
-<span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a>  <span class="at">script =</span> <span class="st">&quot;py/probe.py&quot;</span>,</span>
-<span id="cb13-4"><a href="#cb13-4" tabindex="-1"></a>  <span class="at">python_version =</span> <span class="st">&quot;3.12&quot;</span>,           <span class="co"># reticulate provisions 3.12 via uv</span></span>
-<span id="cb13-5"><a href="#cb13-5" tabindex="-1"></a>  <span class="at">retrieve =</span> <span class="st">&quot;result&quot;</span></span>
-<span id="cb13-6"><a href="#cb13-6" tabindex="-1"></a>)</span></code></pre></div>
+<div class="sourceCode" id="cb24"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" tabindex="-1"></a><span class="fu">tar_target_py</span>(</span>
+<span id="cb24-2"><a href="#cb24-2" tabindex="-1"></a>  <span class="at">name =</span> probe_ver,</span>
+<span id="cb24-3"><a href="#cb24-3" tabindex="-1"></a>  <span class="at">script =</span> <span class="st">&quot;py/probe.py&quot;</span>,</span>
+<span id="cb24-4"><a href="#cb24-4" tabindex="-1"></a>  <span class="at">python_version =</span> <span class="st">&quot;3.12&quot;</span>,           <span class="co"># reticulate provisions 3.12 via uv</span></span>
+<span id="cb24-5"><a href="#cb24-5" tabindex="-1"></a>  <span class="at">retrieve =</span> <span class="st">&quot;result&quot;</span></span>
+<span id="cb24-6"><a href="#cb24-6" tabindex="-1"></a>)</span></code></pre></div>
 <blockquote>
 <p><strong>One interpreter per session.</strong> reticulate binds a
 single Python per R session, so all Python targets that run in the same
@@ -746,18 +881,20 @@ pipeline, run those targets on separate <code>crew</code> workers (see
 <code>post_script</code> are untracked literal paths. To have the step
 re-run when a script changes, track it with a
 <code>format = &quot;file&quot;</code> target and reference it with
-<code>tar_target_path()</code>:</p>
-<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a><span class="fu">list</span>(</span>
-<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a>  <span class="fu">tar_target</span>(fit_py, <span class="st">&quot;py/fit.py&quot;</span>, <span class="at">format =</span> <span class="st">&quot;file&quot;</span>),</span>
-<span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a></span>
-<span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a>  <span class="fu">tar_target_py</span>(</span>
-<span id="cb14-5"><a href="#cb14-5" tabindex="-1"></a>    <span class="at">name =</span> fit,</span>
-<span id="cb14-6"><a href="#cb14-6" tabindex="-1"></a>    <span class="at">script =</span> <span class="fu">tar_target_path</span>(<span class="st">&quot;fit_py&quot;</span>),   <span class="co"># re-runs when py/fit.py changes</span></span>
-<span id="cb14-7"><a href="#cb14-7" tabindex="-1"></a>    <span class="at">pre_script =</span> <span class="st">&quot;R/pre_fit.R&quot;</span>,           <span class="co"># still an untracked literal path</span></span>
-<span id="cb14-8"><a href="#cb14-8" tabindex="-1"></a>    <span class="at">inputs =</span> <span class="fu">c</span>(<span class="at">x =</span> <span class="st">&quot;data&quot;</span>),</span>
-<span id="cb14-9"><a href="#cb14-9" tabindex="-1"></a>    <span class="at">retrieve =</span> <span class="st">&quot;model&quot;</span></span>
-<span id="cb14-10"><a href="#cb14-10" tabindex="-1"></a>  )</span>
-<span id="cb14-11"><a href="#cb14-11" tabindex="-1"></a>)</span></code></pre></div>
+<code>tar_target_path()</code>. <code>py/fit.py</code> is the same
+script shown in “Use case 2” above; <code>R/pre_fit.R</code>:</p>
+<div class="sourceCode" id="cb25"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" tabindex="-1"></a>to_py <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">x =</span> x)   <span class="co"># `x` came from inputs = c(x = &quot;data&quot;)</span></span></code></pre></div>
+<div class="sourceCode" id="cb26"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" tabindex="-1"></a><span class="fu">list</span>(</span>
+<span id="cb26-2"><a href="#cb26-2" tabindex="-1"></a>  <span class="fu">tar_target</span>(fit_py, <span class="st">&quot;py/fit.py&quot;</span>, <span class="at">format =</span> <span class="st">&quot;file&quot;</span>),</span>
+<span id="cb26-3"><a href="#cb26-3" tabindex="-1"></a></span>
+<span id="cb26-4"><a href="#cb26-4" tabindex="-1"></a>  <span class="fu">tar_target_py</span>(</span>
+<span id="cb26-5"><a href="#cb26-5" tabindex="-1"></a>    <span class="at">name =</span> fit,</span>
+<span id="cb26-6"><a href="#cb26-6" tabindex="-1"></a>    <span class="at">script =</span> <span class="fu">tar_target_path</span>(<span class="st">&quot;fit_py&quot;</span>),   <span class="co"># re-runs when py/fit.py changes</span></span>
+<span id="cb26-7"><a href="#cb26-7" tabindex="-1"></a>    <span class="at">pre_script =</span> <span class="st">&quot;R/pre_fit.R&quot;</span>,           <span class="co"># still an untracked literal path</span></span>
+<span id="cb26-8"><a href="#cb26-8" tabindex="-1"></a>    <span class="at">inputs =</span> <span class="fu">c</span>(<span class="at">x =</span> <span class="st">&quot;data&quot;</span>),</span>
+<span id="cb26-9"><a href="#cb26-9" tabindex="-1"></a>    <span class="at">retrieve =</span> <span class="st">&quot;model&quot;</span></span>
+<span id="cb26-10"><a href="#cb26-10" tabindex="-1"></a>  )</span>
+<span id="cb26-11"><a href="#cb26-11" tabindex="-1"></a>)</span></code></pre></div>
 </div>
 <div id="conversion-caveats" class="section level2">
 <h2>Conversion caveats</h2>

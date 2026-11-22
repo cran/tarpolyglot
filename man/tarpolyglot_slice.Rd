@@ -17,14 +17,22 @@ This function is a marker consumed by the tarpolyglot constructors and is not me
 \description{
 A drop-in replacement for the \pkg{targets} \code{\link[targets:tar_target]{targets::tar_target()}} pattern helper \code{slice()}, for use unquoted in the \code{pattern} argument of a tarpolyglot constructor. Like \code{\link[=tarpolyglot_map]{tarpolyglot_map()}}, on \code{\link[=tar_target_rs]{tar_target_rs()}} it compiles the extendr crate \strong{once} in a companion \verb{<name>_rust_lib} target and reuses it across the selected branches; on \code{\link[=tar_target_py]{tar_target_py()}} / \code{\link[=tar_target_jl]{tar_target_jl()}} it is exactly \code{slice()}. See \code{\link[=tarpolyglot_map]{tarpolyglot_map()}} for the full explanation and the compile-once mechanics.
 }
+\section{Only recognised by tarpolyglot constructors}{
+
+The \verb{tarpolyglot_*()} pattern helpers work only inside the \code{pattern} argument of the tarpolyglot constructors (\code{\link[=tar_target_rs]{tar_target_rs()}}, \code{\link[=tar_target_cpp]{tar_target_cpp()}}, \code{\link[=tar_target_py]{tar_target_py()}}, \code{\link[=tar_target_jl]{tar_target_jl()}}, and their \verb{_raw()} forms), which rewrite them to the plain \pkg{targets} pattern before building the target. Used directly in a plain \code{\link[targets:tar_target]{targets::tar_target()}} or \code{\link[targets:tar_target_raw]{targets::tar_target_raw()}} they raise an error such as \verb{invalid dynamic branching pattern ... Illegal symbols found: tarpolyglot_map}, because \pkg{targets} validates a pattern against its own fixed set of pattern functions and does not know these helpers. This cannot be fixed from tarpolyglot: \pkg{targets} looks its pattern functions up in a locked internal environment, so teaching it a new one would require modifying the \pkg{targets} package itself. In a plain \pkg{targets} target (which has no foreign code to compile, so nothing to gain) use the native \code{map()} / \code{cross()} / \code{slice()} / \code{head()} / \code{tail()} / \code{sample()} instead.
+}
+
 \examples{
-\dontrun{
+# square.rs:
+#   #[extendr]
+#   fn square(x: f64) -> f64 { x * x }
+# post.R:
+#   square(x)
 tarpolyglot::tar_target_rs(
   name = rs_some, script = "square.rs", inputs = c(x = "vals"),
   post_script = "post.R", pattern = tarpolyglot_slice(vals, index = c(1, 3))
 )
 }
-}
 \seealso{
-\code{\link[=tarpolyglot_map]{tarpolyglot_map()}}, \code{\link[=tar_target_rs]{tar_target_rs()}}, \code{\link[=tar_target_py]{tar_target_py()}}, \code{\link[=tar_target_jl]{tar_target_jl()}}
+The other pattern helpers: \code{\link[=tarpolyglot_map]{tarpolyglot_map()}}, \code{\link[=tarpolyglot_cross]{tarpolyglot_cross()}}, \code{\link[=tarpolyglot_head]{tarpolyglot_head()}}, \code{\link[=tarpolyglot_tail]{tarpolyglot_tail()}}, \code{\link[=tarpolyglot_sample]{tarpolyglot_sample()}}. The constructors that accept them: \code{\link[=tar_target_rs]{tar_target_rs()}}, \code{\link[=tar_target_cpp]{tar_target_cpp()}}, \code{\link[=tar_target_py]{tar_target_py()}}, \code{\link[=tar_target_jl]{tar_target_jl()}}
 }

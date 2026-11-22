@@ -461,14 +461,22 @@ environments in one pipeline, put those steps on <strong>separate
 each Rust step compiles its own library, so different steps can use
 different crates freely.)</em></p></li>
 <li><p><strong>Foreign global state is shared within a session.</strong>
-The Python script runs in <code>__main__</code> and the Julia script in
-<code>Main</code>. As such, a step running on <code>main</code> will
-re-initialises the interpreter of previous tarpolyglot steps that were
-running on main. This results in the variables left behing by previous
-steps to be visible by later step in the same session. Never rely on it
-and always pass data explicitly (<code>inputs</code> +
-<code>to_py</code>/<code>to_jl</code>) and read results back with
-<code>retrieve</code> or a post-script.</p></li>
+Your Python script runs in Python’s top-level module,
+<code>__main__</code>, and your Julia script in Julia’s,
+<code>Main</code>. Those namespaces belong to the <em>interpreter</em>,
+not to the step, so steps sharing one R session share them too: a later
+step does not start from a clean slate, it reuses the interpreter an
+earlier step already bound, variables and all. Beware of three
+similar-looking names here: Python’s <code>__main__</code> and Julia’s
+<code>Main</code> are foreign-language modules, while
+<code>deployment = &quot;main&quot;</code> refers to the main <strong>R</strong>
+process, and that is where this bites most often, because
+<code>targets</code> runs every <code>main</code>-deployed step in that
+one session. Giving each step its own <code>crew</code> worker avoids it
+(point 3). Either way, never rely on those leftovers: pass data in
+explicitly (<code>inputs</code> + <code>to_py</code>/<code>to_jl</code>)
+and read results back with <code>retrieve</code> or a
+post-script.</p></li>
 <li><p><strong>Start-up cost vs isolation.</strong> A fresh process
 re-initialises the interpreter (and, on the default ephemeral env, may
 fetch packages). The recommended <code>polyglot_controller()</code>
@@ -480,7 +488,7 @@ for throughput, at the cost of the shared-session caveats in points
 boundaries.</strong> A step can return an R object produced by
 conversion, or <strong>file paths</strong>
 (<code>output = &quot;file&quot;</code>). A live Python/Julia object (an open
-handle, an in-memory model) cannot be a target value. You can eventually
+handle, an in-memory model) cannot be a target value. Or you can instead
 write it to disk in one step and load it in the next.</p></li>
 <li><p><strong>Reproducibility is on you.</strong> The default ephemeral
 Python drifts over time; pin a real environment (<code>env</code> +
@@ -488,6 +496,23 @@ Python drifts over time; pin a real environment (<code>env</code> +
 <code>julia_project</code> with a committed <code>Manifest.toml</code>.
 You should also make sure to use some targets steps to keep track of
 your script files.</p></li>
+<li><p><strong>A <code>crew</code> worker is a full process, not a slice
+of one.</strong> It is not restricted to a single CPU core the way a
+lightweight thread might be, it sees every core the machine has, exactly
+like the main session. This matters when a step itself does internal
+multi-core work (RcppParallel, Python’s <code>multiprocessing</code>,
+Julia’s <code>Distributed</code>): running several such steps at once on
+separate workers means each one may try to claim every core, so
+<code>N</code> concurrent workers each spawning a full-width thread or
+process pool can genuinely oversubscribe the machine, degrading
+performance or, on a machine with few cores, exhausting it.
+<code>deployment = &quot;main&quot;</code> on the specific step that does the
+internal parallel work is the fix: <code>targets</code> only ever builds
+one <code>main</code>-deployed target at a time, so those steps never
+compound with each other, while ordinary worker-deployed steps keep
+running alongside them. See <code>vignette(&quot;cpp&quot;)</code>,
+<code>vignette(&quot;python&quot;)</code>, and <code>vignette(&quot;julia&quot;)</code> for
+the working pattern in each language.</p></li>
 </ol>
 </div>
 <div id="a-worked-pipeline-python-iris" class="section level2">
@@ -704,9 +729,64 @@ fresh interpreter under <code>tasks_max = 1</code>):</p>
 <span id="cb16-10"><a href="#cb16-10" tabindex="-1"></a>    <span class="at">iteration =</span> <span class="st">&quot;list&quot;</span></span>
 <span id="cb16-11"><a href="#cb16-11" tabindex="-1"></a>  )</span>
 <span id="cb16-12"><a href="#cb16-12" tabindex="-1"></a>)</span></code></pre></div>
+<p><strong>Per-step log files.</strong>
+<code>polyglot_controller()</code> accepts a <code>log</code> argument
+(built with <code>polyglot_log()</code>) that writes one stdout/stderr
+file per Python or Julia step, named after the target:</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a><span class="fu">tar_option_set</span>(</span>
+<span id="cb17-2"><a href="#cb17-2" tabindex="-1"></a>  <span class="at">controller =</span> <span class="fu">polyglot_controller</span>(</span>
+<span id="cb17-3"><a href="#cb17-3" tabindex="-1"></a>    <span class="at">workers =</span> <span class="dv">2</span><span class="dt">L</span>,</span>
+<span id="cb17-4"><a href="#cb17-4" tabindex="-1"></a>    <span class="at">log =</span> <span class="fu">polyglot_log</span>(<span class="at">stdout =</span> <span class="st">&quot;logs/out&quot;</span>, <span class="at">stderr =</span> <span class="st">&quot;logs/err&quot;</span>)</span>
+<span id="cb17-5"><a href="#cb17-5" tabindex="-1"></a>  )</span>
+<span id="cb17-6"><a href="#cb17-6" tabindex="-1"></a>)</span></code></pre></div>
+<p>The <code>km</code> step above would then get
+<code>logs/out/km.out</code> / <code>logs/err/km.err</code>, starting
+with a header (the step name, <code>date()</code>, the resolved
+interpreter’s version and path, and whether an explicit environment was
+used) followed by whatever the script itself printed. By default
+(<code>append = FALSE</code>) a step’s log is truncated at the start of
+its run, so it only ever holds the latest attempt; set
+<code>append = TRUE</code> to accumulate history instead, with new
+content separated from old by two blank lines – this also means that if
+<code>crew</code> silently retries a step after a worker crash, both
+attempts show up in the same file, which can be useful for
+debugging.</p>
+<p><code>polyglot_log()</code> covers Python and Julia only, not Rust:
+<code>rextendr</code>-compiled code writes straight to the OS file
+descriptor, bypassing the redirection reticulate/JuliaCall provide for
+their embedded interpreters – and Rust doesn’t pay a per-branch
+interpreter start-up cost the way Python/Julia do to begin with, so
+there is less need for a per-step Rust log (see
+<code>tarpolyglot_map()</code> in <code>vignette(&quot;rust&quot;)</code> for how
+a Rust step’s compiled library is instead built once and reused across
+branches). Use <code>crew</code>’s own
+<code>options_local(log_directory = ...)</code> for Rust step output; it
+also works for Python/Julia when <code>log</code> is left unset, since
+tarpolyglot never spawns a subprocess for them – reticulate/JuliaCall’s
+output shares the worker process’s own stdout/stderr, so
+<code>crew</code>’s process-level capture sees it too. Setting
+<em>both</em> is fine, and the two are complementary rather than
+redundant: <code>options_local(log_directory = ...)</code> also captures
+ordinary R-level output (pre/post-script messages, warnings) that
+<code>polyglot_log()</code> does not touch, while
+<code>polyglot_log()</code>’s file is named after the step rather than a
+<code>crew</code>-generated worker name. They do <strong>split</strong>
+the foreign output between the two files rather than duplicate it,
+though: while a step’s script body is running,
+<code>polyglot_log()</code> diverts the foreign print output
+specifically into its own file, so for that window it will not also
+appear in <code>crew</code>’s log.</p>
+<p>One caveat under <strong>dynamic branching</strong>: every branch of
+a pattern target shares the <em>same</em> target name, so with
+<code>append = FALSE</code> (the default) each branch’s log write
+truncates whatever the previous branch wrote – only the last-finishing
+branch’s log survives. Set <code>append = TRUE</code> if you need every
+branch’s output; they land in one file, interleaved by finish order, not
+split into one file per branch.</p>
 <p>See <code>vignette(&quot;python&quot;)</code>, <code>vignette(&quot;julia&quot;)</code>,
 and <code>vignette(&quot;rust&quot;)</code> for the full per-language reference,
-and <code>?polyglot_controller</code> for the controller options.</p>
+and <code>?polyglot_controller</code> / <code>?polyglot_log</code> for
+the controller and logging options.</p>
 </div>
 </div>
 <div id="pre--and-post-scripts-moving-variables-in-and-out" class="section level2">
@@ -727,12 +807,12 @@ rules).</li>
 <li><strong>Julia</strong>: each element is
 <code>julia_assign()</code>ed as a variable in <code>Main</code>.</li>
 </ul>
-<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a><span class="co"># R/iris_pre.R  (inputs = c(df = &quot;iris_data&quot;))</span></span>
-<span id="cb17-2"><a href="#cb17-2" tabindex="-1"></a>to_py <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
-<span id="cb17-3"><a href="#cb17-3" tabindex="-1"></a>  <span class="at">df   =</span> df,                       <span class="co"># R data.frame -&gt; pandas DataFrame</span></span>
-<span id="cb17-4"><a href="#cb17-4" tabindex="-1"></a>  <span class="at">seed =</span> targets<span class="sc">::</span><span class="fu">tar_seed_get</span>(),  <span class="co"># reproducible integer for the Python RNG</span></span>
-<span id="cb17-5"><a href="#cb17-5" tabindex="-1"></a>  <span class="at">k    =</span> <span class="dv">3</span><span class="dt">L</span>                        <span class="co"># note the L: Python wants an int, not a double</span></span>
-<span id="cb17-6"><a href="#cb17-6" tabindex="-1"></a>)</span></code></pre></div>
+<div class="sourceCode" id="cb18"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" tabindex="-1"></a><span class="co"># R/iris_pre.R  (inputs = c(df = &quot;iris_data&quot;))</span></span>
+<span id="cb18-2"><a href="#cb18-2" tabindex="-1"></a>to_py <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb18-3"><a href="#cb18-3" tabindex="-1"></a>  <span class="at">df   =</span> df,                       <span class="co"># R data.frame -&gt; pandas DataFrame</span></span>
+<span id="cb18-4"><a href="#cb18-4" tabindex="-1"></a>  <span class="at">seed =</span> targets<span class="sc">::</span><span class="fu">tar_seed_get</span>(),  <span class="co"># reproducible integer for the Python RNG</span></span>
+<span id="cb18-5"><a href="#cb18-5" tabindex="-1"></a>  <span class="at">k    =</span> <span class="dv">3</span><span class="dt">L</span>                        <span class="co"># note the L: Python wants an int, not a double</span></span>
+<span id="cb18-6"><a href="#cb18-6" tabindex="-1"></a>)</span></code></pre></div>
 <p>Check the reticulate / JuliaCall conversion rules for which R types
 round-trip; for anything that does not, use file mode.</p>
 </div>
@@ -751,9 +831,9 @@ shortcut for <code>JuliaCall::julia_eval(&quot;name&quot;)</code> (JuliaCall has
 no <code>py</code>-style proxy), and <code>jl_call</code>, an alias of
 <code>JuliaCall::julia_call()</code>.</li>
 </ul>
-<div class="sourceCode" id="cb18"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" tabindex="-1"></a><span class="co"># R/iris_post.R  (Python)</span></span>
-<span id="cb18-2"><a href="#cb18-2" tabindex="-1"></a>res <span class="ot">&lt;-</span> <span class="fu">py_get</span>(<span class="st">&quot;result&quot;</span>)</span>
-<span id="cb18-3"><a href="#cb18-3" tabindex="-1"></a><span class="fu">data.frame</span>(<span class="at">n =</span> res<span class="sc">$</span>n, <span class="at">k =</span> <span class="fu">length</span>(res<span class="sc">$</span>centers))   <span class="co"># last expression = target value</span></span></code></pre></div>
+<div class="sourceCode" id="cb19"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" tabindex="-1"></a><span class="co"># R/iris_post.R  (Python)</span></span>
+<span id="cb19-2"><a href="#cb19-2" tabindex="-1"></a>res <span class="ot">&lt;-</span> <span class="fu">py_get</span>(<span class="st">&quot;result&quot;</span>)</span>
+<span id="cb19-3"><a href="#cb19-3" tabindex="-1"></a><span class="fu">data.frame</span>(<span class="at">n =</span> res<span class="sc">$</span>n, <span class="at">k =</span> <span class="fu">length</span>(res<span class="sc">$</span>centers))   <span class="co"># last expression = target value</span></span></code></pre></div>
 <p>Rust is different: it has <strong>no pre-script</strong>. The
 <code>#[extendr]</code> functions are compiled and then called directly
 from the post-script, with the <code>inputs</code> in scope. See

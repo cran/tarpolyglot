@@ -361,16 +361,24 @@ functions. For the simple case you can call it directly inside a plain
 <code>tar_target()</code>, keeping every native <code>targets</code>
 convenience (automatic dependency detection, inline R, a single
 file):</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">library</span>(targets)</span>
-<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a></span>
-<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="fu">list</span>(</span>
-<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a>  <span class="fu">tar_target</span>(petal_length, iris<span class="sc">$</span>Petal.Length),</span>
-<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a></span>
-<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a>  <span class="fu">tar_target</span>(petal_z, {</span>
-<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a>    rextendr<span class="sc">::</span><span class="fu">rust_source</span>(<span class="st">&quot;rs/scale.rs&quot;</span>)   <span class="co"># compiles zscore() and puts it in scope</span></span>
-<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a>    <span class="fu">zscore</span>(petal_length)                   <span class="co"># petal_length is auto-detected as a dependency</span></span>
-<span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a>  })</span>
-<span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a>)</span></code></pre></div>
+<p><code>rs/scale.rs</code>: one <code>#[extendr]</code> function:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode rust"><code class="sourceCode rust"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="at">#[</span>extendr<span class="at">]</span></span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="kw">fn</span> zscore(x<span class="op">:</span> <span class="dt">Vec</span><span class="op">&lt;</span><span class="dt">f64</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="dt">Vec</span><span class="op">&lt;</span><span class="dt">f64</span><span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a>    <span class="kw">let</span> n <span class="op">=</span> x<span class="op">.</span>len() <span class="kw">as</span> <span class="dt">f64</span><span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a>    <span class="kw">let</span> mean <span class="op">=</span> x<span class="op">.</span>iter()<span class="op">.</span><span class="pp">sum::</span><span class="op">&lt;</span><span class="dt">f64</span><span class="op">&gt;</span>() <span class="op">/</span> n<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a>    <span class="kw">let</span> sd <span class="op">=</span> (x<span class="op">.</span>iter()<span class="op">.</span>map(<span class="op">|</span>v<span class="op">|</span> (v <span class="op">-</span> mean)<span class="op">.</span>powi(<span class="dv">2</span>))<span class="op">.</span><span class="pp">sum::</span><span class="op">&lt;</span><span class="dt">f64</span><span class="op">&gt;</span>() <span class="op">/</span> n)<span class="op">.</span>sqrt()<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a>    x<span class="op">.</span>iter()<span class="op">.</span>map(<span class="op">|</span>v<span class="op">|</span> (v <span class="op">-</span> mean) <span class="op">/</span> sd)<span class="op">.</span>collect()</span>
+<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="fu">library</span>(targets)</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a><span class="fu">list</span>(</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>  <span class="fu">tar_target</span>(petal_length, iris<span class="sc">$</span>Petal.Length),</span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>  <span class="fu">tar_target</span>(petal_z, {</span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a>    rextendr<span class="sc">::</span><span class="fu">rust_source</span>(<span class="st">&quot;rs/scale.rs&quot;</span>)   <span class="co"># compiles zscore() and puts it in scope</span></span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a>    <span class="fu">zscore</span>(petal_length)                   <span class="co"># petal_length is auto-detected as a dependency</span></span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a>  })</span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a>)</span></code></pre></div>
 <p>This is the recommended starting point when your Rust toolchain is
 already discoverable, which is the usual situation for local and
 interactive runs. <code>tar_target_rs()</code> is a convenience wrapper
@@ -406,8 +414,14 @@ simpler and gives up nothing. The rest of this vignette documents
 <li><code>tar_target_rs_raw()</code>: string <code>name</code>, for use
 inside targets factories.</li>
 </ul>
-<p>Both return a single <code>targets</code> target and forward every
-<code>targets::tar_target_raw()</code> argument.</p>
+<p>Both forward every <code>targets::tar_target_raw()</code> argument
+and return a single <code>targets</code> target, except with a
+<code>tarpolyglot_*()</code> pattern helper (see “Compile the Rust code
+only once across branches”), where they return a compile target plus the
+branched target.</p>
+<p>These constructors depend on the <a href="https://extendr.rs/rextendr/">rextendr</a> R package. As a result,
+any limitation of rextendr is inherited by the constructors. Reading
+rextendr’s own documentation is recommended.</p>
 </div>
 <div id="how-a-rust-step-differs" class="section level2">
 <h2>How a Rust step differs</h2>
@@ -420,6 +434,9 @@ them.</li>
 compilation, the Rust functions are in scope in the post-script’s
 environment (alongside <code>inputs</code>). Its last expression is the
 target value (object mode); it returns file paths (file mode).</li>
+<li><strong>As many <code>#[extendr]</code> functions as you
+like.</strong> A single script may define multiple functions; all of
+them become R functions in scope in the post-script.</li>
 <li><strong>Real type conversion</strong> (via extendr), not JSON, but
 return values still have to be R-representable, or use
 <code>output = &quot;file&quot;</code>.</li>
@@ -459,24 +476,20 @@ e.g. <code>c(x = &quot;value&quot;)</code>.</td>
 <td><code>&quot;object&quot;</code> (default) or <code>&quot;file&quot;</code>.</td>
 </tr>
 <tr class="odd">
-<td><code>files</code></td>
-<td>Paths to return when there is no post-script (file mode).</td>
-</tr>
-<tr class="even">
 <td><code>dependencies</code></td>
 <td>Crate dependencies as a named list, passed to
 <code>rextendr::rust_source()</code>.</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>features</code></td>
 <td>Cargo features, passed to <code>rextendr::rust_source()</code>.</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>profile</code></td>
 <td>Build profile (e.g. <code>&quot;dev&quot;</code> or
 <code>&quot;release&quot;</code>).</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>toolchain</code></td>
 <td>Optional rustup toolchain
 (e.g. <code>&quot;stable-x86_64-pc-windows-gnu&quot;</code>); sets
@@ -493,12 +506,12 @@ e.g. <code>c(x = &quot;value&quot;)</code>.</td>
 <ol style="list-style-type: decimal">
 <li><p>Install the Rust toolchain with <a href="https://rust-lang.org/tools/install/">rustup</a>. <strong>On
 Windows, use the GNU toolchain</strong> so it matches R’s mingw ABI:</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="ex">rustup</span> toolchain install stable-x86_64-pc-windows-gnu</span>
-<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a><span class="ex">rustup</span> default stable-x86_64-pc-windows-gnu</span></code></pre></div></li>
+<div class="sourceCode" id="cb3"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="ex">rustup</span> toolchain install stable-x86_64-pc-windows-gnu</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a><span class="ex">rustup</span> default stable-x86_64-pc-windows-gnu</span></code></pre></div></li>
 <li><p>Install rextendr and check it works:</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">&quot;rextendr&quot;</span>)</span>
-<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>rextendr<span class="sc">::</span><span class="fu">rust_source</span>(<span class="at">code =</span> <span class="st">&quot;#[extendr] fn double(x: f64) -&gt; f64 { x * 2.0 }&quot;</span>)</span>
-<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a><span class="fu">double</span>(<span class="dv">21</span>)   <span class="co"># 42</span></span></code></pre></div></li>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="st">&quot;rextendr&quot;</span>)</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>rextendr<span class="sc">::</span><span class="fu">rust_source</span>(<span class="at">code =</span> <span class="st">&quot;#[extendr] fn double(x: f64) -&gt; f64 { x * 2.0 }&quot;</span>)</span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a><span class="fu">double</span>(<span class="dv">21</span>)   <span class="co"># 42</span></span></code></pre></div></li>
 </ol>
 <p><code>run_rs_step()</code> puts R, <code>cargo</code>, and (on
 Windows) Rtools on <code>PATH</code> for the build itself, so a Rust
@@ -507,14 +520,6 @@ toolchain must be installed.</p>
 </div>
 <div id="object-output-iris-example" class="section level2">
 <h2>Object output (iris example)</h2>
-<p><code>rs/scale.rs</code>: one <code>#[extendr]</code> function:</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode rust"><code class="sourceCode rust"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="at">#[</span>extendr<span class="at">]</span></span>
-<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="kw">fn</span> zscore(x<span class="op">:</span> <span class="dt">Vec</span><span class="op">&lt;</span><span class="dt">f64</span><span class="op">&gt;</span>) <span class="op">-&gt;</span> <span class="dt">Vec</span><span class="op">&lt;</span><span class="dt">f64</span><span class="op">&gt;</span> <span class="op">{</span></span>
-<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>    <span class="kw">let</span> n <span class="op">=</span> x<span class="op">.</span>len() <span class="kw">as</span> <span class="dt">f64</span><span class="op">;</span></span>
-<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a>    <span class="kw">let</span> mean <span class="op">=</span> x<span class="op">.</span>iter()<span class="op">.</span><span class="pp">sum::</span><span class="op">&lt;</span><span class="dt">f64</span><span class="op">&gt;</span>() <span class="op">/</span> n<span class="op">;</span></span>
-<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>    <span class="kw">let</span> sd <span class="op">=</span> (x<span class="op">.</span>iter()<span class="op">.</span>map(<span class="op">|</span>v<span class="op">|</span> (v <span class="op">-</span> mean)<span class="op">.</span>powi(<span class="dv">2</span>))<span class="op">.</span><span class="pp">sum::</span><span class="op">&lt;</span><span class="dt">f64</span><span class="op">&gt;</span>() <span class="op">/</span> n)<span class="op">.</span>sqrt()<span class="op">;</span></span>
-<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a>    x<span class="op">.</span>iter()<span class="op">.</span>map(<span class="op">|</span>v<span class="op">|</span> (v <span class="op">-</span> mean) <span class="op">/</span> sd)<span class="op">.</span>collect()</span>
-<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 <p><code>R/scale_post.R</code>: the compiled <code>zscore()</code> and
 the input <code>petal</code> are in scope:</p>
 <div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="co"># `petal` is bound from inputs = c(petal = &quot;petal_length&quot;).</span></span>
@@ -537,44 +542,69 @@ the input <code>petal</code> are in scope:</p>
 </div>
 <div id="file-output" class="section level2">
 <h2>File output</h2>
-<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">tar_target_rs</span>(</span>
-<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>  <span class="at">name =</span> rs_file,</span>
-<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>  <span class="at">script =</span> <span class="st">&quot;rs/write.rs&quot;</span>,            <span class="co"># a fn that writes a file and returns its path</span></span>
-<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>  <span class="at">inputs =</span> <span class="fu">c</span>(<span class="at">x =</span> <span class="st">&quot;value&quot;</span>),</span>
-<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a>  <span class="at">post_script =</span> <span class="st">&quot;R/rs_files_post.R&quot;</span>, <span class="co"># returns the path(s)</span></span>
-<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a>  <span class="at">output =</span> <span class="st">&quot;file&quot;</span></span>
-<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a>)</span></code></pre></div>
+<p><code>rs/write.rs</code>: writes a value to disk, the path itself is
+built in the post-script:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode rust"><code class="sourceCode rust"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="kw">use</span> <span class="pp">std::fs::</span>File<span class="op">;</span></span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="kw">use</span> <span class="pp">std::io::</span><span class="bu">Write</span><span class="op">;</span></span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a></span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a><span class="at">#[</span>extendr<span class="at">]</span></span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a><span class="kw">fn</span> write_value(x<span class="op">:</span> <span class="dt">f64</span><span class="op">,</span> path<span class="op">:</span> <span class="dt">String</span>) <span class="op">{</span></span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a>    <span class="kw">let</span> <span class="kw">mut</span> f <span class="op">=</span> <span class="pp">File::</span>create(path)<span class="op">.</span>unwrap()<span class="op">;</span></span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a>    <span class="pp">write!</span>(f<span class="op">,</span> <span class="st">&quot;{}&quot;</span><span class="op">,</span> x)<span class="op">.</span>unwrap()<span class="op">;</span></span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p><code>R/rs_files_post.R</code>: builds the path, calls the compiled
+function, then returns the path (file mode needs the post-script’s last
+expression to be the path(s), not the function’s own return value):</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a>path <span class="ot">&lt;-</span> <span class="fu">tempfile</span>(<span class="at">fileext =</span> <span class="st">&quot;.txt&quot;</span>)</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a><span class="fu">write_value</span>(x, path)</span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>path</span></code></pre></div>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="fu">tar_target_rs</span>(</span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>  <span class="at">name =</span> rs_file,</span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a>  <span class="at">script =</span> <span class="st">&quot;rs/write.rs&quot;</span>,</span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a>  <span class="at">inputs =</span> <span class="fu">c</span>(<span class="at">x =</span> <span class="st">&quot;value&quot;</span>),</span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a>  <span class="at">post_script =</span> <span class="st">&quot;R/rs_files_post.R&quot;</span>, <span class="co"># returns the path(s)</span></span>
+<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a>  <span class="at">output =</span> <span class="st">&quot;file&quot;</span></span>
+<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a>)</span></code></pre></div>
 </div>
 <div id="crate-dependencies-features-profile" class="section level2">
 <h2>Crate dependencies, features, profile</h2>
 <p>Pass extra crates through <code>dependencies</code> (a named list),
-and build options through <code>features</code> /
-<code>profile</code>:</p>
-<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="fu">tar_target_rs</span>(</span>
-<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>  <span class="at">name =</span> parsed,</span>
-<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>  <span class="at">script =</span> <span class="st">&quot;rs/parse.rs&quot;</span>,            <span class="co"># uses serde_json</span></span>
-<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>  <span class="at">inputs =</span> <span class="fu">c</span>(<span class="at">txt =</span> <span class="st">&quot;raw_json&quot;</span>),</span>
-<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>  <span class="at">post_script =</span> <span class="st">&quot;R/parse_post.R&quot;</span>,</span>
-<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a>  <span class="at">dependencies =</span> <span class="fu">list</span>(<span class="st">`</span><span class="at">serde_json</span><span class="st">`</span> <span class="ot">=</span> <span class="st">&quot;1&quot;</span>),</span>
-<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a>  <span class="at">profile =</span> <span class="st">&quot;release&quot;</span></span>
-<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a>)</span></code></pre></div>
+and build options through <code>features</code> / <code>profile</code>.
+<code>rs/parse.rs</code>:</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode rust"><code class="sourceCode rust"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="at">#[</span>extendr<span class="at">]</span></span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a><span class="kw">fn</span> parse_sum(txt<span class="op">:</span> <span class="dt">String</span>) <span class="op">-&gt;</span> <span class="dt">f64</span> <span class="op">{</span></span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a>    <span class="kw">let</span> v<span class="op">:</span> <span class="pp">serde_json::</span>Value <span class="op">=</span> <span class="pp">serde_json::</span>from_str(<span class="op">&amp;</span>txt)<span class="op">.</span>unwrap()<span class="op">;</span></span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a>    v[<span class="st">&quot;numbers&quot;</span>]<span class="op">.</span>as_array()<span class="op">.</span>unwrap()<span class="op">.</span>iter()</span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a>        <span class="op">.</span>map(<span class="op">|</span>n<span class="op">|</span> n<span class="op">.</span>as_f64()<span class="op">.</span>unwrap())</span>
+<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a>        <span class="op">.</span>sum()</span>
+<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p><code>R/parse_post.R</code>:</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="fu">parse_sum</span>(txt)</span></code></pre></div>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a><span class="fu">tar_target_rs</span>(</span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a>  <span class="at">name =</span> parsed,</span>
+<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a>  <span class="at">script =</span> <span class="st">&quot;rs/parse.rs&quot;</span>,</span>
+<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a>  <span class="at">inputs =</span> <span class="fu">c</span>(<span class="at">txt =</span> <span class="st">&quot;raw_json&quot;</span>),      <span class="co"># e.g. &#39;{&quot;numbers&quot;: [1, 2, 3]}&#39;</span></span>
+<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a>  <span class="at">post_script =</span> <span class="st">&quot;R/parse_post.R&quot;</span>,</span>
+<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a>  <span class="at">dependencies =</span> <span class="fu">list</span>(<span class="st">`</span><span class="at">serde_json</span><span class="st">`</span> <span class="ot">=</span> <span class="st">&quot;1&quot;</span>),</span>
+<span id="cb12-7"><a href="#cb12-7" tabindex="-1"></a>  <span class="at">profile =</span> <span class="st">&quot;release&quot;</span></span>
+<span id="cb12-8"><a href="#cb12-8" tabindex="-1"></a>)</span></code></pre></div>
 </div>
 <div id="dynamic-branching" class="section level2">
 <h2>Dynamic branching</h2>
 <p>Like the other constructors, <code>inputs</code> are real
 dependencies, so <code>pattern</code> branches them (and
 <code>crew</code> spreads the branches):</p>
-<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="fu">list</span>(</span>
-<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>  <span class="fu">tar_target</span>(groups, <span class="fu">split</span>(iris<span class="sc">$</span>Petal.Length, iris<span class="sc">$</span>Species), <span class="at">iteration =</span> <span class="st">&quot;list&quot;</span>),</span>
-<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a>  <span class="fu">tar_target_rs</span>(</span>
-<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a>    <span class="at">name =</span> z_by_group,</span>
-<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a>    <span class="at">script =</span> <span class="st">&quot;rs/scale.rs&quot;</span>,</span>
-<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a>    <span class="at">inputs =</span> <span class="fu">c</span>(<span class="at">petal =</span> <span class="st">&quot;groups&quot;</span>),</span>
-<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a>    <span class="at">post_script =</span> <span class="st">&quot;R/scale_post.R&quot;</span>,</span>
-<span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a>    <span class="at">pattern =</span> <span class="fu">map</span>(groups),</span>
-<span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a>    <span class="at">iteration =</span> <span class="st">&quot;list&quot;</span></span>
-<span id="cb9-10"><a href="#cb9-10" tabindex="-1"></a>  )</span>
-<span id="cb9-11"><a href="#cb9-11" tabindex="-1"></a>)</span></code></pre></div>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="fu">list</span>(</span>
+<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a>  <span class="fu">tar_target</span>(groups, <span class="fu">split</span>(iris<span class="sc">$</span>Petal.Length, iris<span class="sc">$</span>Species), <span class="at">iteration =</span> <span class="st">&quot;list&quot;</span>),</span>
+<span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a>  <span class="fu">tar_target_rs</span>(</span>
+<span id="cb13-4"><a href="#cb13-4" tabindex="-1"></a>    <span class="at">name =</span> z_by_group,</span>
+<span id="cb13-5"><a href="#cb13-5" tabindex="-1"></a>    <span class="at">script =</span> <span class="st">&quot;rs/scale.rs&quot;</span>,</span>
+<span id="cb13-6"><a href="#cb13-6" tabindex="-1"></a>    <span class="at">inputs =</span> <span class="fu">c</span>(<span class="at">petal =</span> <span class="st">&quot;groups&quot;</span>),</span>
+<span id="cb13-7"><a href="#cb13-7" tabindex="-1"></a>    <span class="at">post_script =</span> <span class="st">&quot;R/scale_post.R&quot;</span>,</span>
+<span id="cb13-8"><a href="#cb13-8" tabindex="-1"></a>    <span class="at">pattern =</span> <span class="fu">map</span>(groups),</span>
+<span id="cb13-9"><a href="#cb13-9" tabindex="-1"></a>    <span class="at">iteration =</span> <span class="st">&quot;list&quot;</span></span>
+<span id="cb13-10"><a href="#cb13-10" tabindex="-1"></a>  )</span>
+<span id="cb13-11"><a href="#cb13-11" tabindex="-1"></a>)</span></code></pre></div>
 <p>Plain <code>map(groups)</code> here recompiles the crate in
 <strong>every</strong> branch: a Rust step has no live interpreter to
 reuse, so each branch runs <code>cargo</code> from scratch. With many
@@ -621,17 +651,17 @@ named after its <code>targets</code> equivalent:</p>
 </tbody>
 </table>
 <p>Use one exactly where you would use the plain pattern:</p>
-<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="fu">list</span>(</span>
-<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>  <span class="fu">tar_target</span>(groups, <span class="fu">split</span>(iris<span class="sc">$</span>Petal.Length, iris<span class="sc">$</span>Species), <span class="at">iteration =</span> <span class="st">&quot;list&quot;</span>),</span>
-<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a>  <span class="fu">tar_target_rs</span>(</span>
-<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a>    <span class="at">name =</span> z_by_group,</span>
-<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a>    <span class="at">script =</span> <span class="st">&quot;rs/scale.rs&quot;</span>,</span>
-<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a>    <span class="at">inputs =</span> <span class="fu">c</span>(<span class="at">petal =</span> <span class="st">&quot;groups&quot;</span>),</span>
-<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a>    <span class="at">post_script =</span> <span class="st">&quot;R/scale_post.R&quot;</span>,</span>
-<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a>    <span class="at">pattern =</span> <span class="fu">tarpolyglot_map</span>(groups),   <span class="co"># was map(groups): now compiles once</span></span>
-<span id="cb10-9"><a href="#cb10-9" tabindex="-1"></a>    <span class="at">iteration =</span> <span class="st">&quot;list&quot;</span></span>
-<span id="cb10-10"><a href="#cb10-10" tabindex="-1"></a>  )</span>
-<span id="cb10-11"><a href="#cb10-11" tabindex="-1"></a>)</span></code></pre></div>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a><span class="fu">list</span>(</span>
+<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a>  <span class="fu">tar_target</span>(groups, <span class="fu">split</span>(iris<span class="sc">$</span>Petal.Length, iris<span class="sc">$</span>Species), <span class="at">iteration =</span> <span class="st">&quot;list&quot;</span>),</span>
+<span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a>  <span class="fu">tar_target_rs</span>(</span>
+<span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a>    <span class="at">name =</span> z_by_group,</span>
+<span id="cb14-5"><a href="#cb14-5" tabindex="-1"></a>    <span class="at">script =</span> <span class="st">&quot;rs/scale.rs&quot;</span>,</span>
+<span id="cb14-6"><a href="#cb14-6" tabindex="-1"></a>    <span class="at">inputs =</span> <span class="fu">c</span>(<span class="at">petal =</span> <span class="st">&quot;groups&quot;</span>),</span>
+<span id="cb14-7"><a href="#cb14-7" tabindex="-1"></a>    <span class="at">post_script =</span> <span class="st">&quot;R/scale_post.R&quot;</span>,</span>
+<span id="cb14-8"><a href="#cb14-8" tabindex="-1"></a>    <span class="at">pattern =</span> <span class="fu">tarpolyglot_map</span>(groups),   <span class="co"># was map(groups): now compiles once</span></span>
+<span id="cb14-9"><a href="#cb14-9" tabindex="-1"></a>    <span class="at">iteration =</span> <span class="st">&quot;list&quot;</span></span>
+<span id="cb14-10"><a href="#cb14-10" tabindex="-1"></a>  )</span>
+<span id="cb14-11"><a href="#cb14-11" tabindex="-1"></a>)</span></code></pre></div>
 <p>On a Rust step, <code>tarpolyglot_map()</code> expands that single
 constructor call into <strong>two</strong> targets:</p>
 <ul>
@@ -666,41 +696,175 @@ helpers are simply the opt-in that adds compile-once on Rust.</p>
 so there is nothing to compile and nothing to reuse.
 <code>tarpolyglot_map()</code> on a Python step is therefore exactly
 <code>map()</code>. This lets one pipeline branch every language with
-the same helper:</p>
-<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="fu">list</span>(</span>
-<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a>  <span class="fu">tar_target</span>(vals, <span class="fu">c</span>(<span class="dv">10</span>, <span class="dv">20</span>, <span class="dv">30</span>)),</span>
-<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a>  <span class="co"># Python: behaves exactly as map(vals).</span></span>
-<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a>  <span class="fu">tar_target_py</span>(</span>
-<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a>    <span class="at">name =</span> py_b, <span class="at">script =</span> <span class="st">&quot;py/sq.py&quot;</span>, <span class="at">inputs =</span> <span class="fu">c</span>(<span class="at">x =</span> <span class="st">&quot;vals&quot;</span>),</span>
-<span id="cb11-6"><a href="#cb11-6" tabindex="-1"></a>    <span class="at">pre_script =</span> <span class="st">&quot;R/push.R&quot;</span>, <span class="at">retrieve =</span> <span class="st">&quot;result&quot;</span>,</span>
-<span id="cb11-7"><a href="#cb11-7" tabindex="-1"></a>    <span class="at">pattern =</span> <span class="fu">tarpolyglot_map</span>(vals)</span>
-<span id="cb11-8"><a href="#cb11-8" tabindex="-1"></a>  ),</span>
-<span id="cb11-9"><a href="#cb11-9" tabindex="-1"></a>  <span class="co"># Rust: compiles once in py_b&#39;s sibling rs_b_rust_lib, reuses across branches.</span></span>
-<span id="cb11-10"><a href="#cb11-10" tabindex="-1"></a>  <span class="fu">tar_target_rs</span>(</span>
-<span id="cb11-11"><a href="#cb11-11" tabindex="-1"></a>    <span class="at">name =</span> rs_b, <span class="at">script =</span> <span class="st">&quot;rs/square.rs&quot;</span>, <span class="at">inputs =</span> <span class="fu">c</span>(<span class="at">x =</span> <span class="st">&quot;vals&quot;</span>),</span>
-<span id="cb11-12"><a href="#cb11-12" tabindex="-1"></a>    <span class="at">post_script =</span> <span class="st">&quot;R/post.R&quot;</span>,</span>
-<span id="cb11-13"><a href="#cb11-13" tabindex="-1"></a>    <span class="at">pattern =</span> <span class="fu">tarpolyglot_map</span>(vals)</span>
-<span id="cb11-14"><a href="#cb11-14" tabindex="-1"></a>  )</span>
-<span id="cb11-15"><a href="#cb11-15" tabindex="-1"></a>)</span></code></pre></div>
+the same helper. The four files involved:</p>
+<p><code>py/sq.py</code>:</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a>result <span class="op">=</span> x <span class="op">**</span> <span class="dv">2</span></span></code></pre></div>
+<p><code>R/push.R</code> (pre-script for the Python step,
+<code>to_py</code> hands <code>x</code> over):</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a>to_py <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">x =</span> x)</span></code></pre></div>
+<p><code>rs/square.rs</code>:</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode rust"><code class="sourceCode rust"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a><span class="at">#[</span>extendr<span class="at">]</span></span>
+<span id="cb17-2"><a href="#cb17-2" tabindex="-1"></a><span class="kw">fn</span> square(x<span class="op">:</span> <span class="dt">f64</span>) <span class="op">-&gt;</span> <span class="dt">f64</span> <span class="op">{</span> x <span class="op">*</span> x <span class="op">}</span></span></code></pre></div>
+<p><code>R/post.R</code> (post-script for the Rust step):</p>
+<div class="sourceCode" id="cb18"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" tabindex="-1"></a><span class="fu">square</span>(x)</span></code></pre></div>
+<div class="sourceCode" id="cb19"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" tabindex="-1"></a><span class="fu">list</span>(</span>
+<span id="cb19-2"><a href="#cb19-2" tabindex="-1"></a>  <span class="fu">tar_target</span>(vals, <span class="fu">c</span>(<span class="dv">10</span>, <span class="dv">20</span>, <span class="dv">30</span>)),</span>
+<span id="cb19-3"><a href="#cb19-3" tabindex="-1"></a>  <span class="co"># Python: behaves exactly as map(vals).</span></span>
+<span id="cb19-4"><a href="#cb19-4" tabindex="-1"></a>  <span class="fu">tar_target_py</span>(</span>
+<span id="cb19-5"><a href="#cb19-5" tabindex="-1"></a>    <span class="at">name =</span> py_b, <span class="at">script =</span> <span class="st">&quot;py/sq.py&quot;</span>, <span class="at">inputs =</span> <span class="fu">c</span>(<span class="at">x =</span> <span class="st">&quot;vals&quot;</span>),</span>
+<span id="cb19-6"><a href="#cb19-6" tabindex="-1"></a>    <span class="at">pre_script =</span> <span class="st">&quot;R/push.R&quot;</span>, <span class="at">retrieve =</span> <span class="st">&quot;result&quot;</span>,</span>
+<span id="cb19-7"><a href="#cb19-7" tabindex="-1"></a>    <span class="at">pattern =</span> <span class="fu">tarpolyglot_map</span>(vals)</span>
+<span id="cb19-8"><a href="#cb19-8" tabindex="-1"></a>  ),</span>
+<span id="cb19-9"><a href="#cb19-9" tabindex="-1"></a>  <span class="co"># Rust: compiles once in py_b&#39;s sibling rs_b_rust_lib, reuses across branches.</span></span>
+<span id="cb19-10"><a href="#cb19-10" tabindex="-1"></a>  <span class="fu">tar_target_rs</span>(</span>
+<span id="cb19-11"><a href="#cb19-11" tabindex="-1"></a>    <span class="at">name =</span> rs_b, <span class="at">script =</span> <span class="st">&quot;rs/square.rs&quot;</span>, <span class="at">inputs =</span> <span class="fu">c</span>(<span class="at">x =</span> <span class="st">&quot;vals&quot;</span>),</span>
+<span id="cb19-12"><a href="#cb19-12" tabindex="-1"></a>    <span class="at">post_script =</span> <span class="st">&quot;R/post.R&quot;</span>,</span>
+<span id="cb19-13"><a href="#cb19-13" tabindex="-1"></a>    <span class="at">pattern =</span> <span class="fu">tarpolyglot_map</span>(vals)</span>
+<span id="cb19-14"><a href="#cb19-14" tabindex="-1"></a>  )</span>
+<span id="cb19-15"><a href="#cb19-15" tabindex="-1"></a>)</span></code></pre></div>
 <p>The <code>tarpolyglot_*</code> helpers are recognised only inside the
-tarpolyglot constructors. A plain <code>targets::tar_target()</code>
-does not know them, so there you use the native <code>map()</code> /
-<code>cross()</code> / … directly (a plain step has no foreign code to
-compile anyway).</p>
+tarpolyglot constructors, which rewrite them before handing the pattern
+to <code>targets</code>. Used directly in a plain
+<code>targets::tar_target()</code> or
+<code>targets::tar_target_raw()</code> they <strong>raise an
+error</strong>
+(<code>invalid dynamic branching pattern ... Illegal symbols found: tarpolyglot_map</code>),
+because <code>targets</code> validates a pattern against its own fixed
+set of pattern functions and does not know these helpers. This cannot be
+corrected from tarpolyglot: <code>targets</code> looks its pattern
+functions up in a locked internal environment, so teaching it a new one
+would require modifying the <code>targets</code> package itself. In a
+plain <code>targets</code> target (which has no foreign code to compile,
+so nothing to gain) use the native <code>map()</code> /
+<code>cross()</code> / … directly.</p>
 </div>
+</div>
+<div id="several-rust-steps-in-one-pipeline" class="section level2">
+<h2>Several Rust steps in one pipeline</h2>
+<p>A pipeline can contain as many <code>tar_target_rs()</code> steps as
+you like, mixing branching (<code>tarpolyglot_map()</code> and friends)
+and non-branching steps freely. Each step compiles its own library
+independently (or once, with a pattern helper), and the libraries do not
+interfere with one another, even when several run in the same
+<code>crew</code> worker. <code>z</code> reuses <code>rs/scale.rs</code>
+(content shown in “Object output” above); <code>noise</code> is a
+second, unrelated step in the same pipeline, <code>rs/rng.rs</code> (a
+small linear congruential generator, no extra crate needed):</p>
+<div class="sourceCode" id="cb20"><pre class="sourceCode rust"><code class="sourceCode rust"><span id="cb20-1"><a href="#cb20-1" tabindex="-1"></a><span class="at">#[</span>extendr<span class="at">]</span></span>
+<span id="cb20-2"><a href="#cb20-2" tabindex="-1"></a><span class="kw">fn</span> rng_normal(n<span class="op">:</span> <span class="dt">i32</span><span class="op">,</span> seed<span class="op">:</span> <span class="dt">i32</span>) <span class="op">-&gt;</span> <span class="dt">Vec</span><span class="op">&lt;</span><span class="dt">f64</span><span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb20-3"><a href="#cb20-3" tabindex="-1"></a>    <span class="kw">let</span> <span class="kw">mut</span> state <span class="op">=</span> seed <span class="kw">as</span> <span class="dt">u64</span><span class="op">;</span></span>
+<span id="cb20-4"><a href="#cb20-4" tabindex="-1"></a>    (<span class="dv">0</span><span class="op">..</span>n)<span class="op">.</span>map(<span class="op">|</span>_<span class="op">|</span> <span class="op">{</span></span>
+<span id="cb20-5"><a href="#cb20-5" tabindex="-1"></a>        state <span class="op">=</span> state<span class="op">.</span>wrapping_mul(<span class="dv">6364136223846793005</span>)<span class="op">.</span>wrapping_add(<span class="dv">1</span>)<span class="op">;</span></span>
+<span id="cb20-6"><a href="#cb20-6" tabindex="-1"></a>        ((state <span class="op">&gt;&gt;</span> <span class="dv">33</span>) <span class="kw">as</span> <span class="dt">f64</span>) <span class="op">/</span> (<span class="dt">u32</span><span class="pp">::</span><span class="cn">MAX</span> <span class="kw">as</span> <span class="dt">f64</span>)</span>
+<span id="cb20-7"><a href="#cb20-7" tabindex="-1"></a>    <span class="op">}</span>)<span class="op">.</span>collect()</span>
+<span id="cb20-8"><a href="#cb20-8" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p><code>R/rng_post.R</code>:</p>
+<div class="sourceCode" id="cb21"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" tabindex="-1"></a><span class="fu">rng_normal</span>(<span class="dv">5</span><span class="dt">L</span>, seed)</span></code></pre></div>
+<div class="sourceCode" id="cb22"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" tabindex="-1"></a><span class="fu">list</span>(</span>
+<span id="cb22-2"><a href="#cb22-2" tabindex="-1"></a>  <span class="fu">tar_target</span>(vals, <span class="fu">c</span>(<span class="dv">10</span>, <span class="dv">20</span>, <span class="dv">30</span>)),</span>
+<span id="cb22-3"><a href="#cb22-3" tabindex="-1"></a>  <span class="fu">tar_target</span>(seed, <span class="dv">42</span>),</span>
+<span id="cb22-4"><a href="#cb22-4" tabindex="-1"></a>  <span class="co"># Branching, compile-once.</span></span>
+<span id="cb22-5"><a href="#cb22-5" tabindex="-1"></a>  <span class="fu">tar_target_rs</span>(z, <span class="at">script =</span> <span class="st">&quot;rs/scale.rs&quot;</span>, <span class="at">inputs =</span> <span class="fu">c</span>(<span class="at">petal =</span> <span class="st">&quot;vals&quot;</span>),</span>
+<span id="cb22-6"><a href="#cb22-6" tabindex="-1"></a>                <span class="at">post_script =</span> <span class="st">&quot;R/scale_post.R&quot;</span>, <span class="at">pattern =</span> <span class="fu">tarpolyglot_map</span>(vals)),</span>
+<span id="cb22-7"><a href="#cb22-7" tabindex="-1"></a>  <span class="co"># A second, non-branching Rust step in the same pipeline.</span></span>
+<span id="cb22-8"><a href="#cb22-8" tabindex="-1"></a>  <span class="fu">tar_target_rs</span>(noise, <span class="at">script =</span> <span class="st">&quot;rs/rng.rs&quot;</span>, <span class="at">inputs =</span> <span class="fu">c</span>(<span class="at">seed =</span> <span class="st">&quot;seed&quot;</span>),</span>
+<span id="cb22-9"><a href="#cb22-9" tabindex="-1"></a>                <span class="at">post_script =</span> <span class="st">&quot;R/rng_post.R&quot;</span>)</span>
+<span id="cb22-10"><a href="#cb22-10" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+<div id="compile-once-reuse-in-other-steps" class="section level2">
+<h2>Compile once, reuse in other steps</h2>
+<p>The library a Rust step compiles is an ordinary R object, so you can
+compile once in one target and reuse the functions in other, unrelated
+steps, with no recompilation. Two exported helpers make this
+explicit:</p>
+<ul>
+<li><code>compile_rs_lib()</code> compiles a script’s
+<code>#[extendr]</code> functions and returns a self-contained library
+object (the compiled code plus its R wrappers). It is what the
+<code>tarpolyglot_*()</code> pattern helpers use under the hood.</li>
+<li><code>run_rs_step_prebuilt()</code> reloads such a library (in
+milliseconds, no toolchain needed) and evaluates a post-script against
+it, exactly like <code>run_rs_step()</code> does after compiling.</li>
+</ul>
+<p><code>rs/math.rs</code>:</p>
+<div class="sourceCode" id="cb23"><pre class="sourceCode rust"><code class="sourceCode rust"><span id="cb23-1"><a href="#cb23-1" tabindex="-1"></a><span class="at">#[</span>extendr<span class="at">]</span></span>
+<span id="cb23-2"><a href="#cb23-2" tabindex="-1"></a><span class="kw">fn</span> add_one(x<span class="op">:</span> <span class="dt">f64</span>) <span class="op">-&gt;</span> <span class="dt">f64</span> <span class="op">{</span> x <span class="op">+</span> <span class="dv">1.0</span> <span class="op">}</span></span></code></pre></div>
+<p><code>R/use_math.R</code>: the compiled <code>add_one()</code> and
+the input <code>x</code> are in scope:</p>
+<div class="sourceCode" id="cb24"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" tabindex="-1"></a><span class="fu">add_one</span>(x)</span></code></pre></div>
+<div class="sourceCode" id="cb25"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" tabindex="-1"></a><span class="fu">list</span>(</span>
+<span id="cb25-2"><a href="#cb25-2" tabindex="-1"></a>  <span class="fu">tar_target</span>(x, <span class="dv">5</span>),</span>
+<span id="cb25-3"><a href="#cb25-3" tabindex="-1"></a>  <span class="co"># Compile once; the result is stored like any target value (rds by default, or qs).</span></span>
+<span id="cb25-4"><a href="#cb25-4" tabindex="-1"></a>  <span class="fu">tar_target</span>(mathlib, tarpolyglot<span class="sc">::</span><span class="fu">compile_rs_lib</span>(<span class="st">&quot;rs/math.rs&quot;</span>)),</span>
+<span id="cb25-5"><a href="#cb25-5" tabindex="-1"></a>  <span class="co"># Reuse it in a different step, with no recompilation.</span></span>
+<span id="cb25-6"><a href="#cb25-6" tabindex="-1"></a>  <span class="fu">tar_target</span>(y, tarpolyglot<span class="sc">::</span><span class="fu">run_rs_step_prebuilt</span>(</span>
+<span id="cb25-7"><a href="#cb25-7" tabindex="-1"></a>    mathlib, <span class="at">post_script =</span> <span class="st">&quot;R/use_math.R&quot;</span>, <span class="at">inputs =</span> <span class="fu">list</span>(<span class="at">x =</span> x)))</span>
+<span id="cb25-8"><a href="#cb25-8" tabindex="-1"></a>)</span></code></pre></div>
+<p>Because a script can define several <code>#[extendr]</code>
+functions, one compiled library can serve many steps. This is the
+recommended way to share Rust code across a pipeline: compile the
+functions once, then call them wherever you need them.</p>
+<div id="using-more-than-one-library-in-a-step" class="section level3">
+<h3>Using more than one library in a step</h3>
+<p>A single step can also use several compiled libraries. Call
+<code>run_rs_step_prebuilt()</code> once per library and combine the
+results. <code>libA</code> reuses <code>rs/math.rs</code> above;
+<code>rs/lib_b.rs</code> is a second, independent script:</p>
+<div class="sourceCode" id="cb26"><pre class="sourceCode rust"><code class="sourceCode rust"><span id="cb26-1"><a href="#cb26-1" tabindex="-1"></a><span class="at">#[</span>extendr<span class="at">]</span></span>
+<span id="cb26-2"><a href="#cb26-2" tabindex="-1"></a><span class="kw">fn</span> times_ten(x<span class="op">:</span> <span class="dt">f64</span>) <span class="op">-&gt;</span> <span class="dt">f64</span> <span class="op">{</span> x <span class="op">*</span> <span class="dv">10.0</span> <span class="op">}</span></span></code></pre></div>
+<p><code>R/a.R</code>:</p>
+<div class="sourceCode" id="cb27"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" tabindex="-1"></a><span class="fu">add_one</span>(x)</span></code></pre></div>
+<p><code>R/b.R</code>:</p>
+<div class="sourceCode" id="cb28"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" tabindex="-1"></a><span class="fu">times_ten</span>(x)</span></code></pre></div>
+<div class="sourceCode" id="cb29"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" tabindex="-1"></a><span class="fu">list</span>(</span>
+<span id="cb29-2"><a href="#cb29-2" tabindex="-1"></a>  <span class="fu">tar_target</span>(x, <span class="dv">5</span>),</span>
+<span id="cb29-3"><a href="#cb29-3" tabindex="-1"></a>  <span class="fu">tar_target</span>(libA, tarpolyglot<span class="sc">::</span><span class="fu">compile_rs_lib</span>(<span class="st">&quot;rs/math.rs&quot;</span>)),</span>
+<span id="cb29-4"><a href="#cb29-4" tabindex="-1"></a>  <span class="fu">tar_target</span>(libB, tarpolyglot<span class="sc">::</span><span class="fu">compile_rs_lib</span>(<span class="st">&quot;rs/lib_b.rs&quot;</span>)),</span>
+<span id="cb29-5"><a href="#cb29-5" tabindex="-1"></a></span>
+<span id="cb29-6"><a href="#cb29-6" tabindex="-1"></a>  <span class="fu">tar_target</span>(combined, {</span>
+<span id="cb29-7"><a href="#cb29-7" tabindex="-1"></a>    a <span class="ot">&lt;-</span> tarpolyglot<span class="sc">::</span><span class="fu">run_rs_step_prebuilt</span>(libA, <span class="at">post_script =</span> <span class="st">&quot;R/a.R&quot;</span>, <span class="at">inputs =</span> <span class="fu">list</span>(<span class="at">x =</span> x))</span>
+<span id="cb29-8"><a href="#cb29-8" tabindex="-1"></a>    b <span class="ot">&lt;-</span> tarpolyglot<span class="sc">::</span><span class="fu">run_rs_step_prebuilt</span>(libB, <span class="at">post_script =</span> <span class="st">&quot;R/b.R&quot;</span>, <span class="at">inputs =</span> <span class="fu">list</span>(<span class="at">x =</span> x))</span>
+<span id="cb29-9"><a href="#cb29-9" tabindex="-1"></a>    a <span class="sc">+</span> b</span>
+<span id="cb29-10"><a href="#cb29-10" tabindex="-1"></a>  })</span>
+<span id="cb29-11"><a href="#cb29-11" tabindex="-1"></a>)</span></code></pre></div>
+<p>The libraries are loaded one at a time (see “Current limitations”),
+so call them in sequence like this rather than trying to use functions
+from two libraries in the same expression.</p>
+</div>
+</div>
+<div id="current-limitations" class="section level2">
+<h2>Current limitations</h2>
+<ul>
+<li><strong>One compiled library resident at a time (per module
+name).</strong> rextendr names every compiled crate
+<code>rextendr&lt;N&gt;</code> from a per-process counter, so two
+libraries built in separate workers often share the name
+<code>rextendr1</code>. <code>tarpolyglot</code> handles this by loading
+the library you are calling and swapping it out when you switch to
+another, so results are always correct. It does mean you cannot hold two
+such libraries live at once to interleave their functions in a single
+expression. When you need several functions available together, put them
+in one script (a script may define any number of <code>#[extendr]</code>
+functions) rather than in separate libraries.</li>
+<li><strong>A pattern helper adds a companion target.</strong>
+<code>tarpolyglot_map()</code> (and the other helpers) create a
+<code>&lt;name&gt;_rust_lib</code> compile target alongside the branched
+target. This is intentional, it is what makes compile-once work, and it
+shows up in <code>tar_visnetwork()</code>.</li>
+</ul>
 </div>
 <div id="windows-toolchain-note" class="section level2">
 <h2>Windows toolchain note</h2>
 <p>rextendr requires the Rust <strong>GNU</strong> toolchain on Windows
 (to match R’s mingw ABI). Either set it as the rustup default (shown
 above) or pass it per step:</p>
-<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a><span class="fu">tar_target_rs</span>(</span>
-<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a>  <span class="at">name =</span> petal_z,</span>
-<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a>  <span class="at">script =</span> <span class="st">&quot;rs/scale.rs&quot;</span>,</span>
-<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a>  <span class="at">inputs =</span> <span class="fu">c</span>(<span class="at">petal =</span> <span class="st">&quot;petal_length&quot;</span>),</span>
-<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a>  <span class="at">post_script =</span> <span class="st">&quot;R/scale_post.R&quot;</span>,</span>
-<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a>  <span class="at">toolchain =</span> <span class="st">&quot;stable-x86_64-pc-windows-gnu&quot;</span>   <span class="co"># sets RUSTUP_TOOLCHAIN for the build</span></span>
-<span id="cb12-7"><a href="#cb12-7" tabindex="-1"></a>)</span></code></pre></div>
+<div class="sourceCode" id="cb30"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" tabindex="-1"></a><span class="fu">tar_target_rs</span>(</span>
+<span id="cb30-2"><a href="#cb30-2" tabindex="-1"></a>  <span class="at">name =</span> petal_z,</span>
+<span id="cb30-3"><a href="#cb30-3" tabindex="-1"></a>  <span class="at">script =</span> <span class="st">&quot;rs/scale.rs&quot;</span>,</span>
+<span id="cb30-4"><a href="#cb30-4" tabindex="-1"></a>  <span class="at">inputs =</span> <span class="fu">c</span>(<span class="at">petal =</span> <span class="st">&quot;petal_length&quot;</span>),</span>
+<span id="cb30-5"><a href="#cb30-5" tabindex="-1"></a>  <span class="at">post_script =</span> <span class="st">&quot;R/scale_post.R&quot;</span>,</span>
+<span id="cb30-6"><a href="#cb30-6" tabindex="-1"></a>  <span class="at">toolchain =</span> <span class="st">&quot;stable-x86_64-pc-windows-gnu&quot;</span>   <span class="co"># sets RUSTUP_TOOLCHAIN for the build</span></span>
+<span id="cb30-7"><a href="#cb30-7" tabindex="-1"></a>)</span></code></pre></div>
 </div>
 <div id="trade-offs-vs-pythonjulia" class="section level2">
 <h2>Trade-offs vs Python/Julia</h2>
@@ -712,11 +876,17 @@ Each step compiles and loads its own library, so different steps can
 freely use different crates/toolchains in the same session.</li>
 <li><strong>Compilation cost instead of interpreter start-up.</strong>
 The first build compiles the extendr crate and your code (tens of
-seconds); cargo caches artefacts, so re-runs are faster.</li>
+seconds); cargo caches artefacts, so re-runs are faster. To avoid
+recompiling in every branch, use a <code>tarpolyglot_*()</code> pattern
+helper (compile-once across branches); to avoid recompiling across
+steps, compile once with <code>compile_rs_lib()</code> and reuse it with
+<code>run_rs_step_prebuilt()</code> (see the sections above).</li>
 </ul>
 <p>See <code>?tar_target_rs</code> and <code>?run_rs_step</code> for the
-full argument reference, and <code>vignette(&quot;get_started&quot;)</code> for
-how Rust steps fit alongside Python/Julia and <code>crew</code>.</p>
+full argument reference, <code>?tarpolyglot_map</code>,
+<code>?compile_rs_lib</code>, and <code>?run_rs_step_prebuilt</code> for
+compile-once and library reuse, and <code>vignette(&quot;get_started&quot;)</code>
+for how Rust steps fit alongside Python/Julia and <code>crew</code>.</p>
 </div>
 
 

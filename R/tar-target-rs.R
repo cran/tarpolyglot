@@ -7,63 +7,98 @@
 #' Under dynamic branching, `pattern = map(...)` recompiles the crate in every branch (Rust has no live interpreter to reuse). Passing a tarpolyglot pattern helper instead ([tarpolyglot_map()], [tarpolyglot_cross()], [tarpolyglot_slice()], [tarpolyglot_head()], [tarpolyglot_tail()], [tarpolyglot_sample()]) compiles the crate **once** in a companion target named `<name>_rust_lib` and reuses it across all branches; the constructor then returns *both* targets as a list. See [tarpolyglot_map()].
 #'
 #' @inheritParams tarpolyglot-shared-params
-#' @param name Character string, the target name.
-#' @param script Path to the Rust script with `#[extendr]` functions (required). Either a literal string (an untracked path: editing the file does not invalidate the target) or a [tar_target_path()] reference to an upstream target (typically `format = "file"`), which makes this step re-run whenever that file changes.
-#' @param post_script Path to an R script run after compilation, where the compiled functions and `inputs` are in scope. Its last expression is the value (object mode); it returns file paths (file mode). Required for object mode. Accepts a literal string or a [tar_target_path()] reference, as for `script`.
+#' @inheritSection tarpolyglot-shared-params Script options
+#' @inheritParams tarpolyglot-params-raw
+#' @inheritParams tarpolyglot-pattern-raw-compiled
+#' @param script Path to the Rust script with `#[extendr]` functions (required). Accepts a literal path, a [tar_target_path()] reference, or inline code from [tar_code()]; see the "Script options" section below.
+#' @inheritParams tarpolyglot-post-script-compiled
 #' @param dependencies,features,profile Passed to [rextendr::rust_source()]: crate `dependencies` (named list), Cargo `features`, and build `profile`.
 #' @param toolchain Optional rustup toolchain (e.g. `"stable-x86_64-pc-windows-gnu"`); sets `RUSTUP_TOOLCHAIN` for the build.
-#' @param pattern Optional \pkg{targets} dynamic-branching pattern as a language object (e.g. `quote(map(x))`), forwarded to [targets::tar_target_raw()]. Use `quote(tarpolyglot_map(x))` to compile the crate once and reuse it across branches (see [tarpolyglot_map()]).
 #'
 #' @return A `targets` target object. When `pattern` uses [tarpolyglot_map()] it is instead a list of two targets: the `<name>_rust_lib` compile target and the branched `<name>` target.
 #' @seealso [tar_target_rs()], [tarpolyglot_map()], [run_rs_step()], [tar_target_py_raw()], [tar_target_jl_raw()]
 #' @export
 #' @examples
-#' \dontrun{
+#' # Building a target does not run it, so these examples need no Rust toolchain.
+#' # scripts/square.rs:
+#' #   #[extendr]
+#' #   fn square(x: f64) -> f64 { x * x }
+#' # scripts/post.R:
+#' #   square(x)
 #' tarpolyglot::tar_target_rs_raw(
 #'   name = "rs_square",
-#'   script = "scripts/square.rs",     # #[extendr] fn square(x: f64) -> f64
+#'   script = "scripts/square.rs",
 #'   inputs = c(x = "value"),
-#'   post_script = "scripts/post.R"    # ends on square(x)
+#'   post_script = "scripts/post.R"
 #' )
-#' }
-tar_target_rs_raw <- function(name,
-                              script,
-                              post_script = NULL,
-                              inputs = NULL,
-                              output = "object",
-                              files = NULL,
-                              dependencies = NULL,
-                              features = NULL,
-                              profile = NULL,
-                              toolchain = NULL,
-                              pattern = NULL,
-                              packages = targets::tar_option_get("packages"),
-                              library = targets::tar_option_get("library"),
-                              deps = NULL,
-                              string = NULL,
-                              format = NULL,
-                              repository = targets::tar_option_get("repository"),
-                              iteration = targets::tar_option_get("iteration"),
-                              error = targets::tar_option_get("error"),
-                              memory = targets::tar_option_get("memory"),
-                              garbage_collection = isTRUE(targets::tar_option_get("garbage_collection")),
-                              deployment = targets::tar_option_get("deployment"),
-                              priority = targets::tar_option_get("priority"),
-                              resources = targets::tar_option_get("resources"),
-                              storage = targets::tar_option_get("storage"),
-                              retrieval = targets::tar_option_get("retrieval"),
-                              cue = targets::tar_option_get("cue"),
-                              description = targets::tar_option_get("description")) {
+#'
+#' # The three ways to supply a script (see the "Script options" section):
+#' # 1. Literal path: untracked, editing the file does NOT re-run the step.
+#' tarpolyglot::tar_target_rs_raw(
+#'   name = "demo_literal", script = "rs/step.rs", post_script = "R/post.R"
+#' )
+#'
+#' # 2. tar_target_path(): tracked, editing the file DOES re-run the step.
+#' list(
+#'   targets::tar_target(step_rs, "rs/step.rs", format = "file"),
+#'   tarpolyglot::tar_target_rs_raw(
+#'     name = "demo_tracked",
+#'     script = tarpolyglot::tar_target_path("step_rs"),
+#'     post_script = "R/post.R"
+#'   )
+#' )
+#'
+#' # 3. tar_code(): inline, editing the code DOES re-run the step. A string
+#' #    carries foreign source; an R { } block carries inline R.
+#' tarpolyglot::tar_target_rs_raw(
+#'   name = "demo_inline",
+#'   script = tarpolyglot::tar_code("#[extendr] fn one() -> f64 { 1.0 }"),
+#'   post_script = tarpolyglot::tar_code({ one() })
+#' )
+tar_target_rs_raw <- function(
+  name,
+  script,
+  post_script = NULL,
+  inputs = NULL,
+  output = "object",
+  dependencies = NULL,
+  features = NULL,
+  profile = NULL,
+  toolchain = NULL,
+  pattern = NULL,
+  packages = targets::tar_option_get("packages"),
+  library = targets::tar_option_get("library"),
+  deps = NULL,
+  string = NULL,
+  format = NULL,
+  repository = targets::tar_option_get("repository"),
+  iteration = targets::tar_option_get("iteration"),
+  error = targets::tar_option_get("error"),
+  memory = targets::tar_option_get("memory"),
+  garbage_collection = isTRUE(targets::tar_option_get("garbage_collection")),
+  deployment = targets::tar_option_get("deployment"),
+  priority = targets::tar_option_get("priority"),
+  resources = targets::tar_option_get("resources"),
+  storage = targets::tar_option_get("storage"),
+  retrieval = targets::tar_option_get("retrieval"),
+  cue = targets::tar_option_get("cue"),
+  description = targets::tar_option_get("description")
+) {
   if (!is.character(name) || length(name) != 1L || !nzchar(name)) {
     stop("`name` must be a single non-empty string.", call. = FALSE)
   }
   output <- .tp_match_output(output)
   .tp_assert_script(script, "script")
   if (inherits(script, "tp_expr")) {
-    stop("`script` cannot be an R `tar_code({ ... })` block; the Rust `script` ",
-      "must be source code (a `tar_code(\"...\")` string) or a path.", call. = FALSE)
+    stop(
+      "`script` cannot be an R `tar_code({ ... })` block; the Rust `script` ",
+      "must be source code (a `tar_code(\"...\")` string) or a path.",
+      call. = FALSE
+    )
   }
-  if (!is.null(post_script)) .tp_assert_script(post_script, "post_script")
+  if (!is.null(post_script)) {
+    .tp_assert_script(post_script, "post_script")
+  }
   inputs_call <- .tp_inputs_call(inputs)
   pinfo <- .tp_pattern(pattern)
 
@@ -79,15 +114,32 @@ tar_target_rs_raw <- function(name,
   # `<name>_rust_lib` target, then reuse it across the branches of `<name>`.
   if (isTRUE(pinfo$compile_once)) {
     return(.tp_rs_compile_once(
-      name = name, script = script, post_script = post_script,
-      inputs_call = inputs_call, output = output, files = files,
-      dependencies = dependencies, features = features, profile = profile,
-      toolchain = toolchain, pattern = pinfo$pattern, packages = packages,
-      library = library, deps = deps, string = string, format = format,
-      repository = repository, iteration = iteration, error = error,
-      memory = memory, garbage_collection = garbage_collection,
-      deployment = deployment, priority = priority, resources = resources,
-      storage = storage, retrieval = retrieval, cue = cue,
+      name = name,
+      script = script,
+      post_script = post_script,
+      inputs_call = inputs_call,
+      output = output,
+      dependencies = dependencies,
+      features = features,
+      profile = profile,
+      toolchain = toolchain,
+      pattern = pinfo$pattern,
+      packages = packages,
+      library = library,
+      deps = deps,
+      string = string,
+      format = format,
+      repository = repository,
+      iteration = iteration,
+      error = error,
+      memory = memory,
+      garbage_collection = garbage_collection,
+      deployment = deployment,
+      priority = priority,
+      resources = resources,
+      storage = storage,
+      retrieval = retrieval,
+      cue = cue,
       description = description
     ))
   }
@@ -99,7 +151,6 @@ tar_target_rs_raw <- function(name,
       post_script = .(.tp_script_expr(post_script)),
       inputs = .(inputs_call),
       output = .(output),
-      files = .(files),
       dependencies = .(dependencies),
       features = .(features),
       profile = .(profile),
@@ -135,12 +186,35 @@ tar_target_rs_raw <- function(name,
 #   * `<name>_rust_lib`: compiles the extendr crate once (not branched);
 #   * `<name>`: branches over `pattern`, reusing the compiled library.
 # Returns a list of both targets (targets flattens nested target lists).
-.tp_rs_compile_once <- function(name, script, post_script, inputs_call, output,
-                                files, dependencies, features, profile, toolchain,
-                                pattern, packages, library, deps, string, format,
-                                repository, iteration, error, memory,
-                                garbage_collection, deployment, priority,
-                                resources, storage, retrieval, cue, description) {
+.tp_rs_compile_once <- function(
+  name,
+  script,
+  post_script,
+  inputs_call,
+  output,
+  dependencies,
+  features,
+  profile,
+  toolchain,
+  pattern,
+  packages,
+  library,
+  deps,
+  string,
+  format,
+  repository,
+  iteration,
+  error,
+  memory,
+  garbage_collection,
+  deployment,
+  priority,
+  resources,
+  storage,
+  retrieval,
+  cue,
+  description
+) {
   lib_name <- paste0(name, "_rust_lib")
 
   lib_command <- bquote(
@@ -153,8 +227,9 @@ tar_target_rs_raw <- function(name,
     )
   )
 
-  lib_description <- if (length(description) && !is.na(description) &&
-      nzchar(description)) {
+  lib_description <- if (
+    length(description) && !is.na(description) && nzchar(description)
+  ) {
     paste0(description, " (Rust crate compiled once)")
   } else {
     paste0("Compile the Rust crate once for ", name)
@@ -184,8 +259,7 @@ tar_target_rs_raw <- function(name,
       lib = .(as.name(lib_name)),
       post_script = .(.tp_script_expr(post_script)),
       inputs = .(inputs_call),
-      output = .(output),
-      files = .(files)
+      output = .(output)
     )
   )
 
@@ -219,15 +293,21 @@ tar_target_rs_raw <- function(name,
 #'
 #' Non-standard-evaluation constructor mirroring [targets::tar_target()] for Rust: pass a bare `name` and unquoted `pattern`, for direct use in `_targets.R`. Compiles the `#[extendr]` functions in `script` with [rextendr::rust_source()] and calls them from the R `post_script`. Delegates to [tar_target_rs_raw()]; see it and [run_rs_step()] for the full reference. The Python/Julia twins are [tar_target_py()] / [tar_target_jl()].
 #'
+#' @inheritParams tarpolyglot-params-nse
+#' @inheritParams tarpolyglot-pattern-nse-compiled
 #' @inheritParams tar_target_rs_raw
-#' @param name Symbol, the target name (unquoted).
-#' @param pattern Optional dynamic-branching pattern, unquoted (e.g. `map(x)`). Use `tarpolyglot_map(x)` to compile the crate once and reuse it across branches (see [tarpolyglot_map()]).
+#' @inheritSection tarpolyglot-shared-params Script options
 #'
 #' @return A `targets` target object. When `pattern` uses [tarpolyglot_map()] it is instead a list of two targets: the `<name>_rust_lib` compile target and the branched `<name>` target.
 #' @seealso [tar_target_rs_raw()], [tarpolyglot_map()], [run_rs_step()], [tar_target_py()], [tar_target_jl()]
 #' @export
 #' @examples
-#' \dontrun{
+#' # Building a target does not run it, so these examples need no Rust toolchain.
+#' # scripts/square.rs:
+#' #   #[extendr]
+#' #   fn square(x: f64) -> f64 { x * x }
+#' # scripts/post.R:
+#' #   square(x)
 #' list(
 #'   tarpolyglot::tar_target_rs(
 #'     name = rs_square,
@@ -236,35 +316,59 @@ tar_target_rs_raw <- function(name,
 #'     post_script = "scripts/post.R"
 #'   )
 #' )
-#' }
-tar_target_rs <- function(name,
-                          script,
-                          post_script = NULL,
-                          inputs = NULL,
-                          output = "object",
-                          files = NULL,
-                          dependencies = NULL,
-                          features = NULL,
-                          profile = NULL,
-                          toolchain = NULL,
-                          pattern = NULL,
-                          packages = targets::tar_option_get("packages"),
-                          library = targets::tar_option_get("library"),
-                          deps = NULL,
-                          string = NULL,
-                          format = NULL,
-                          repository = targets::tar_option_get("repository"),
-                          iteration = targets::tar_option_get("iteration"),
-                          error = targets::tar_option_get("error"),
-                          memory = targets::tar_option_get("memory"),
-                          garbage_collection = isTRUE(targets::tar_option_get("garbage_collection")),
-                          deployment = targets::tar_option_get("deployment"),
-                          priority = targets::tar_option_get("priority"),
-                          resources = targets::tar_option_get("resources"),
-                          storage = targets::tar_option_get("storage"),
-                          retrieval = targets::tar_option_get("retrieval"),
-                          cue = targets::tar_option_get("cue"),
-                          description = targets::tar_option_get("description")) {
+#'
+#' # The three ways to supply a script (see the "Script options" section):
+#' # 1. Literal path: untracked, editing the file does NOT re-run the step.
+#' tarpolyglot::tar_target_rs(
+#'   name = demo_literal, script = "rs/step.rs", post_script = "R/post.R"
+#' )
+#'
+#' # 2. tar_target_path(): tracked, editing the file DOES re-run the step.
+#' list(
+#'   targets::tar_target(step_rs, "rs/step.rs", format = "file"),
+#'   tarpolyglot::tar_target_rs(
+#'     name = demo_tracked,
+#'     script = tarpolyglot::tar_target_path("step_rs"),
+#'     post_script = "R/post.R"
+#'   )
+#' )
+#'
+#' # 3. tar_code(): inline, editing the code DOES re-run the step. A string
+#' #    carries foreign source; an R { } block carries inline R.
+#' tarpolyglot::tar_target_rs(
+#'   name = demo_inline,
+#'   script = tarpolyglot::tar_code("#[extendr] fn one() -> f64 { 1.0 }"),
+#'   post_script = tarpolyglot::tar_code({ one() })
+#' )
+tar_target_rs <- function(
+  name,
+  script,
+  post_script = NULL,
+  inputs = NULL,
+  output = "object",
+  dependencies = NULL,
+  features = NULL,
+  profile = NULL,
+  toolchain = NULL,
+  pattern = NULL,
+  packages = targets::tar_option_get("packages"),
+  library = targets::tar_option_get("library"),
+  deps = NULL,
+  string = NULL,
+  format = NULL,
+  repository = targets::tar_option_get("repository"),
+  iteration = targets::tar_option_get("iteration"),
+  error = targets::tar_option_get("error"),
+  memory = targets::tar_option_get("memory"),
+  garbage_collection = isTRUE(targets::tar_option_get("garbage_collection")),
+  deployment = targets::tar_option_get("deployment"),
+  priority = targets::tar_option_get("priority"),
+  resources = targets::tar_option_get("resources"),
+  storage = targets::tar_option_get("storage"),
+  retrieval = targets::tar_option_get("retrieval"),
+  cue = targets::tar_option_get("cue"),
+  description = targets::tar_option_get("description")
+) {
   name <- .tp_name(substitute(name))
   pattern <- substitute(pattern)
   tar_target_rs_raw(
@@ -273,7 +377,6 @@ tar_target_rs <- function(name,
     post_script = post_script,
     inputs = inputs,
     output = output,
-    files = files,
     dependencies = dependencies,
     features = features,
     profile = profile,

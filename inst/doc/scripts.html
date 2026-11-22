@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>Supplying scripts: paths, tracking, and inline code</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Supplying scripts: paths, tracking, and
+inline code</h1>
+
+
+
+<p>Every tarpolyglot constructor takes its code through script
+arguments: the foreign <code>script</code>, and, where the language has
+them, an R <code>pre_script</code> and <code>post_script</code>. Each of
+those accepts the same three forms, and this vignette is about choosing
+between them.</p>
+<p>The choice is not cosmetic. It decides <strong>whether editing your
+code re-runs the step</strong>, which is the difference between a
+pipeline that rebuilds when you change a script and one that quietly
+serves you a stale result. Examples below use
+<code>tar_target_py()</code>, but everything applies unchanged to
+<code>tar_target_jl()</code>, <code>tar_target_rs()</code>,
+<code>tar_target_cpp()</code>, and the <code>_raw()</code> forms.</p>
+<div id="the-three-forms-at-a-glance" class="section level2">
+<h2>The three forms at a glance</h2>
+<table>
+<colgroup>
+<col width="25%" />
+<col width="25%" />
+<col width="25%" />
+<col width="25%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Form</th>
+<th>Where the code lives</th>
+<th>Tracked by <code>targets</code>?</th>
+<th>Editing the code re-runs the step?</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>&quot;py/step.py&quot;</code></td>
+<td>a file on disk</td>
+<td>no</td>
+<td><strong>no</strong></td>
+</tr>
+<tr class="even">
+<td><code>tar_target_path(&quot;step_py&quot;)</code></td>
+<td>a file on disk</td>
+<td>yes</td>
+<td><strong>yes</strong></td>
+</tr>
+<tr class="odd">
+<td><code>tar_code(...)</code></td>
+<td>inside <code>_targets.R</code></td>
+<td>yes (hashed in the command)</td>
+<td><strong>yes</strong></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="a-literal-path-string" class="section level2">
+<h2>1. A literal path string</h2>
+<p>The simplest form: give the path as an ordinary string.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">library</span>(targets)</span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="fu">library</span>(tarpolyglot)</span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a><span class="fu">list</span>(</span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a>  <span class="fu">tar_target</span>(prepared_x, <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>, <span class="dv">4</span>)),</span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a>  <span class="fu">tar_target_py</span>(</span>
+<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a>    <span class="at">name =</span> py_sum,</span>
+<span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a>    <span class="at">script =</span> <span class="st">&quot;py/step.py&quot;</span>,</span>
+<span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a>    <span class="at">inputs =</span> <span class="fu">c</span>(<span class="at">x =</span> <span class="st">&quot;prepared_x&quot;</span>),</span>
+<span id="cb1-11"><a href="#cb1-11" tabindex="-1"></a>    <span class="at">pre_script =</span> <span class="st">&quot;R/pre.R&quot;</span>,</span>
+<span id="cb1-12"><a href="#cb1-12" tabindex="-1"></a>    <span class="at">retrieve =</span> <span class="st">&quot;result&quot;</span></span>
+<span id="cb1-13"><a href="#cb1-13" tabindex="-1"></a>  )</span>
+<span id="cb1-14"><a href="#cb1-14" tabindex="-1"></a>)</span></code></pre></div>
+<p>The file is read when the step runs, but <code>targets</code> never
+looks at its contents, so <strong>the path is untracked</strong>.
+Editing <code>py/step.py</code> does not invalidate <code>py_sum</code>:
+the target stays up to date and keeps returning its old value until some
+<em>other</em> tracked dependency (here, <code>prepared_x</code>)
+changes.</p>
+<p>That is occasionally what you want, and it is the least ceremony, so
+it is a reasonable default for a script that has settled down. It is a
+poor default while you are still writing the script, because the
+pipeline will not notice your edits.</p>
+</div>
+<div id="a-tar_target_path-reference" class="section level2">
+<h2>2. A <code>tar_target_path()</code> reference</h2>
+<p>To make edits count, track the file as a real target and point at it
+by target name with `tarpolyglot::tar_target_path()`.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="fu">list</span>(</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>  <span class="fu">tar_target</span>(prepared_x, <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>, <span class="dv">4</span>)),</span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>  <span class="co"># The script becomes a file target: targets watches its contents.</span></span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>  <span class="fu">tar_target</span>(step_py, <span class="st">&quot;py/step.py&quot;</span>, <span class="at">format =</span> <span class="st">&quot;file&quot;</span>),</span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a>  <span class="fu">tar_target_py</span>(</span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a>    <span class="at">name =</span> py_sum,</span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a>    <span class="at">script =</span> <span class="fu">tar_target_path</span>(<span class="st">&quot;step_py&quot;</span>),</span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a>    <span class="at">inputs =</span> <span class="fu">c</span>(<span class="at">x =</span> <span class="st">&quot;prepared_x&quot;</span>),</span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a>    <span class="at">retrieve =</span> <span class="st">&quot;result&quot;</span></span>
+<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a>  )</span>
+<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a>)</span></code></pre></div>
+<p>Two things are happening. The
+<code>tar_target(step_py, &quot;py/step.py&quot;, format = &quot;file&quot;)</code> target
+hashes the file, so <code>targets</code> re-runs it whenever the file
+changes. Then <code>tar_target_path(&quot;step_py&quot;)</code> wires that target
+in as a dependency of <code>py_sum</code>, rather than passing the
+literal string <code>&quot;step_py&quot;</code> as a path.</p>
+<p>Now editing <code>py/step.py</code> invalidates <code>step_py</code>,
+which invalidates <code>py_sum</code>, and the step re-runs. This is the
+recommended form for a reproducible pipeline, and the one to reach for
+while a script is under active development.</p>
+<p><code>tar_target_path()</code> takes the <strong>target
+name</strong>, not a path. This is the common mistake:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="co"># Wrong: this looks for a target called &quot;py/step.py&quot;.</span></span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>script <span class="ot">=</span> <span class="fu">tar_target_path</span>(<span class="st">&quot;py/step.py&quot;</span>)</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a><span class="co"># Right: name the file target you declared above.</span></span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>script <span class="ot">=</span> <span class="fu">tar_target_path</span>(<span class="st">&quot;step_py&quot;</span>)</span></code></pre></div>
+</div>
+<div id="inline-code-with-tar_code" class="section level2">
+<h2>3. Inline code with <code>tar_code()</code></h2>
+<p>Sometimes a step is three lines long and a separate file is more
+bookkeeping than it is worth. <code>tar_code()</code> lets the code live
+directly in <code>_targets.R</code>.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="fu">list</span>(</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>  <span class="fu">tar_target</span>(prepared_x, <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>, <span class="dv">4</span>)),</span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a>  <span class="fu">tar_target_py</span>(</span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>    <span class="at">name =</span> py_sum,</span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a>    <span class="at">inputs =</span> <span class="fu">c</span>(<span class="at">x =</span> <span class="st">&quot;prepared_x&quot;</span>),</span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a>    <span class="at">pre_script =</span> <span class="fu">tar_code</span>({ to_py <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">x =</span> x) }),</span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a>    <span class="at">script =</span> <span class="fu">tar_code</span>(<span class="st">&quot;result = sum(x)&quot;</span>),</span>
+<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a>    <span class="at">post_script =</span> <span class="fu">tar_code</span>({ <span class="fu">py_get</span>(<span class="st">&quot;result&quot;</span>) })</span>
+<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a>  )</span>
+<span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a>)</span></code></pre></div>
+<p>Inline code is embedded in the target’s command, so
+<code>targets</code> hashes it like any other part of the command:
+<strong>editing the code invalidates the target</strong>, with no
+<code>format = &quot;file&quot;</code> target needed.</p>
+<p>Note the two flavours, which are not interchangeable:</p>
+<ul>
+<li><strong>A character string</strong> carries <em>foreign</em> source
+(Python here, or Julia, Rust, C++) and is also accepted for an R
+<code>pre_script</code>/<code>post_script</code>.</li>
+<li><strong>An R <code>{ ... }</code> block</strong> carries <em>inline
+R</em> and is valid only for
+<code>pre_script</code>/<code>post_script</code>. Passing one as the
+foreign <code>script</code> is an error, since a <code>{ }</code> block
+is R code, not Python.</li>
+</ul>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="co"># Error: an R block cannot be the Python script.</span></span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="fu">tar_target_py</span>(<span class="at">name =</span> bad, <span class="at">script =</span> <span class="fu">tar_code</span>({ result <span class="ot">&lt;-</span> <span class="dv">1</span> }))</span></code></pre></div>
+<p>Multi-line strings are dedented, so you can indent inline Python to
+line up with the surrounding <code>_targets.R</code> and its own block
+indentation still comes out valid:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="fu">tar_target_py</span>(</span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>  <span class="at">name =</span> py_positive,</span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>  <span class="at">inputs =</span> <span class="fu">c</span>(<span class="at">x =</span> <span class="st">&quot;prepared_x&quot;</span>),</span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>  <span class="at">pre_script =</span> <span class="fu">tar_code</span>({ to_py <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">x =</span> x) }),</span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a>  <span class="at">script =</span> <span class="fu">tar_code</span>(<span class="st">&quot;</span></span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a><span class="st">    total = 0</span></span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a><span class="st">    for v in x:</span></span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a><span class="st">        if v &gt; 0:</span></span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a><span class="st">            total += v</span></span>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a><span class="st">    result = total</span></span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a><span class="st">  &quot;</span>),</span>
+<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a>  <span class="at">retrieve =</span> <span class="st">&quot;result&quot;</span></span>
+<span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+<div id="mixing-forms-in-one-call" class="section level2">
+<h2>Mixing forms in one call</h2>
+<p>The three forms are per argument, so you can mix them freely. A
+common combination is a tracked <code>script</code> with a small inline
+<code>post_script</code>:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">list</span>(</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>  <span class="fu">tar_target</span>(step_py, <span class="st">&quot;py/step.py&quot;</span>, <span class="at">format =</span> <span class="st">&quot;file&quot;</span>),</span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a></span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>  <span class="fu">tar_target_py</span>(</span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a>    <span class="at">name =</span> py_sum,</span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a>    <span class="at">script =</span> <span class="fu">tar_target_path</span>(<span class="st">&quot;step_py&quot;</span>),   <span class="co"># tracked file</span></span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a>    <span class="at">inputs =</span> <span class="fu">c</span>(<span class="at">x =</span> <span class="st">&quot;prepared_x&quot;</span>),</span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a>    <span class="at">pre_script =</span> <span class="st">&quot;R/pre.R&quot;</span>,                <span class="co"># untracked file</span></span>
+<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a>    <span class="at">post_script =</span> <span class="fu">tar_code</span>({ <span class="fu">py_get</span>(<span class="st">&quot;result&quot;</span>) })  <span class="co"># inline</span></span>
+<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a>  )</span>
+<span id="cb7-11"><a href="#cb7-11" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+<div id="which-should-i-use" class="section level2">
+<h2>Which should I use?</h2>
+<ul>
+<li><strong>Writing or debugging a script</strong>:
+<code>tar_target_path()</code>. You want every edit to re-run the step;
+anything else will waste your time on stale results.</li>
+<li><strong>A short step, a few lines</strong>: <code>tar_code()</code>.
+No file to manage, and edits still invalidate correctly.</li>
+<li><strong>A long, stable script you rarely touch</strong>: a literal
+path is fine, and the least ceremony. Be aware you are opting out of
+change detection, and switch to <code>tar_target_path()</code> the
+moment you start editing again.</li>
+</ul>
+<p>When in doubt, prefer <code>tar_target_path()</code> or
+<code>tar_code()</code>. Both make <code>targets</code> do what people
+expect: change the code, re-run the step.</p>
+</div>
+<div id="tracking-helper-files-your-script-imports" class="section level2">
+<h2>Tracking helper files your script imports</h2>
+<p>The <code>script</code> is often not the only file a step needs. A
+Python step may import a helper module, a Julia step may
+<code>include()</code> a file of shared definitions. Tracking the script
+itself does nothing for those: <code>targets</code> has no idea the
+helper exists, so editing it leaves the step up to date and hands you a
+stale value. This is the same failure as an untracked script, and it is
+quieter, because the script you <em>are</em> tracking has not
+changed.</p>
+<p>Here the helper is invisible to the pipeline:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="co"># py/helper.py       -&gt;  def scale(v): return [2 * i for i in v]</span></span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a><span class="co"># py/step.py         -&gt;  import sys; sys.path.insert(0, &quot;py&quot;)</span></span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a><span class="co">#                        import helper</span></span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a><span class="co">#                        result = sum(helper.scale(x))</span></span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a></span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a><span class="fu">list</span>(</span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a>  <span class="fu">tar_target</span>(prepared_x, <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>, <span class="dv">4</span>)),</span>
+<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a></span>
+<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a>  <span class="fu">tar_target_py</span>(</span>
+<span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a>    <span class="at">name =</span> py_total,</span>
+<span id="cb8-11"><a href="#cb8-11" tabindex="-1"></a>    <span class="at">script =</span> <span class="st">&quot;py/step.py&quot;</span>,</span>
+<span id="cb8-12"><a href="#cb8-12" tabindex="-1"></a>    <span class="at">inputs =</span> <span class="fu">c</span>(<span class="at">x =</span> <span class="st">&quot;prepared_x&quot;</span>),</span>
+<span id="cb8-13"><a href="#cb8-13" tabindex="-1"></a>    <span class="at">pre_script =</span> <span class="fu">tar_code</span>({ to_py <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">x =</span> x) }),</span>
+<span id="cb8-14"><a href="#cb8-14" tabindex="-1"></a>    <span class="at">retrieve =</span> <span class="st">&quot;result&quot;</span></span>
+<span id="cb8-15"><a href="#cb8-15" tabindex="-1"></a>  )</span>
+<span id="cb8-16"><a href="#cb8-16" tabindex="-1"></a>)</span></code></pre></div>
+<p>Change <code>helper.py</code> to scale by 3 and <code>py_total</code>
+stays up to date, still reporting the result computed with the old
+factor.</p>
+<div id="wiring-the-helper-in-with-inputs" class="section level3">
+<h3>Wiring the helper in with <code>inputs</code></h3>
+<p><code>inputs</code> maps a name you will see inside the step to the
+name of an upstream target. Point it at a <code>format = &quot;file&quot;</code>
+target and you get both halves at once: the helper becomes a real
+dependency, so editing it re-runs the step, and its path is bound in the
+step environment, so the script can load it.</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="fu">list</span>(</span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>  <span class="fu">tar_target</span>(prepared_x, <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>, <span class="dv">4</span>)),</span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a></span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a>  <span class="co"># The helper becomes a file target: targets hashes its contents.</span></span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a>  <span class="fu">tar_target</span>(helper_file, <span class="st">&quot;py/helper.py&quot;</span>, <span class="at">format =</span> <span class="st">&quot;file&quot;</span>),</span>
+<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a></span>
+<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a>  <span class="fu">tar_target_py</span>(</span>
+<span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a>    <span class="at">name =</span> py_total,</span>
+<span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a>    <span class="at">script =</span> <span class="st">&quot;py/step.py&quot;</span>,</span>
+<span id="cb9-10"><a href="#cb9-10" tabindex="-1"></a>    <span class="at">inputs =</span> <span class="fu">c</span>(<span class="at">x =</span> <span class="st">&quot;prepared_x&quot;</span>, <span class="at">helper_path =</span> <span class="st">&quot;helper_file&quot;</span>),</span>
+<span id="cb9-11"><a href="#cb9-11" tabindex="-1"></a>    <span class="at">pre_script =</span> <span class="fu">tar_code</span>({ to_py <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">x =</span> x, <span class="at">helper_path =</span> helper_path) }),</span>
+<span id="cb9-12"><a href="#cb9-12" tabindex="-1"></a>    <span class="at">retrieve =</span> <span class="st">&quot;result&quot;</span></span>
+<span id="cb9-13"><a href="#cb9-13" tabindex="-1"></a>  )</span>
+<span id="cb9-14"><a href="#cb9-14" tabindex="-1"></a>)</span></code></pre></div>
+<p>with <code>py/step.py</code> loading the helper from the path it was
+handed, rather than a hard-coded one:</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="im">import</span> os, sys</span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>sys.path.insert(<span class="dv">0</span>, os.path.dirname(helper_path))</span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a><span class="im">import</span> helper</span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a></span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a>result <span class="op">=</span> <span class="bu">sum</span>(helper.scale(x))</span></code></pre></div>
+<p>Now editing <code>py/helper.py</code> re-hashes
+<code>helper_file</code>, which puts <code>py_total</code> out of date,
+and the step re-runs against the new helper.</p>
+<p>Like <code>tar_target_path()</code>, <code>inputs</code> takes
+<strong>target names</strong>, not paths. The same mistake applies:</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="co"># Wrong: looks for a target called &quot;py/helper.py&quot;.</span></span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a>inputs <span class="ot">=</span> <span class="fu">c</span>(<span class="at">helper_path =</span> <span class="st">&quot;py/helper.py&quot;</span>)</span>
+<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a></span>
+<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a><span class="co"># Right: name the file target you declared above.</span></span>
+<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a>inputs <span class="ot">=</span> <span class="fu">c</span>(<span class="at">helper_path =</span> <span class="st">&quot;helper_file&quot;</span>)</span></code></pre></div>
+<p>Several helpers are simply several entries, each with its own file
+target:</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a>inputs <span class="ot">=</span> <span class="fu">c</span>(</span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a>  <span class="at">x        =</span> <span class="st">&quot;prepared_x&quot;</span>,</span>
+<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a>  <span class="at">helper_1 =</span> <span class="st">&quot;helper_1_file&quot;</span>,</span>
+<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a>  <span class="at">helper_2 =</span> <span class="st">&quot;helper_2_file&quot;</span></span>
+<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a>)</span></code></pre></div>
+</div>
+<div id="julia" class="section level3">
+<h3>Julia</h3>
+<p>The shape is identical, with <code>to_jl</code> in place of
+<code>to_py</code>. One difference matters: Julia resolves a relative
+path given to <code>include()</code> against the directory of the file
+doing the including, not the working directory, so a relative helper
+path from a file target will not be found. Make it absolute in the
+pre-script.</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="fu">list</span>(</span>
+<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a>  <span class="fu">tar_target</span>(prepared_x, <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">3</span>, <span class="dv">4</span>)),</span>
+<span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a>  <span class="fu">tar_target</span>(helper_file, <span class="st">&quot;jl/helper.jl&quot;</span>, <span class="at">format =</span> <span class="st">&quot;file&quot;</span>),</span>
+<span id="cb13-4"><a href="#cb13-4" tabindex="-1"></a></span>
+<span id="cb13-5"><a href="#cb13-5" tabindex="-1"></a>  <span class="fu">tar_target_jl</span>(</span>
+<span id="cb13-6"><a href="#cb13-6" tabindex="-1"></a>    <span class="at">name =</span> jl_total,</span>
+<span id="cb13-7"><a href="#cb13-7" tabindex="-1"></a>    <span class="at">script =</span> <span class="st">&quot;jl/step.jl&quot;</span>,</span>
+<span id="cb13-8"><a href="#cb13-8" tabindex="-1"></a>    <span class="at">inputs =</span> <span class="fu">c</span>(<span class="at">x =</span> <span class="st">&quot;prepared_x&quot;</span>, <span class="at">helper_path =</span> <span class="st">&quot;helper_file&quot;</span>),</span>
+<span id="cb13-9"><a href="#cb13-9" tabindex="-1"></a>    <span class="at">pre_script =</span> <span class="fu">tar_code</span>({</span>
+<span id="cb13-10"><a href="#cb13-10" tabindex="-1"></a>      to_jl <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">x =</span> x, <span class="at">helper_path =</span> <span class="fu">normalizePath</span>(helper_path, <span class="at">winslash =</span> <span class="st">&quot;/&quot;</span>))</span>
+<span id="cb13-11"><a href="#cb13-11" tabindex="-1"></a>    }),</span>
+<span id="cb13-12"><a href="#cb13-12" tabindex="-1"></a>    <span class="at">retrieve =</span> <span class="st">&quot;result&quot;</span></span>
+<span id="cb13-13"><a href="#cb13-13" tabindex="-1"></a>  )</span>
+<span id="cb13-14"><a href="#cb13-14" tabindex="-1"></a>)</span></code></pre></div>
+<p>with <code>jl/step.jl</code>:</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode julia"><code class="sourceCode julia"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a><span class="fu">include</span>(helper_path)</span>
+<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a>result <span class="op">=</span> <span class="fu">sum</span>(<span class="fu">myscale</span>(x))</span></code></pre></div>
+</div>
+<div id="why-c-and-rust-are-different" class="section level3">
+<h3>Why C++ and Rust are different</h3>
+<p>For Python and Julia the helper is loaded at <em>run time</em>, from
+a path the step is handed, which is exactly what <code>inputs</code>
+provides. C++ and Rust instead need their helper at <em>compile</em>
+time, and tarpolyglot reads your script and passes its
+<strong>text</strong> to <code>Rcpp::sourceCpp(code = ...)</code> and
+<code>rextendr::rust_source(code = ...)</code>. The compiler therefore
+runs in a temporary build directory rather than beside your source file,
+so a neighbouring helper is not on its search path and a relative
+<code>#include &quot;helper.h&quot;</code> or <code>include!(&quot;helper.rs&quot;)</code>
+does not resolve.</p>
+<p>The tracking half still works: listing the helper in
+<code>inputs</code> makes it a dependency, so editing it re-runs the
+step and recompiles. It is only the <em>loading</em> half that a
+relative path cannot do. For C++ an absolute <code>#include</code> does
+resolve, so a helper header is usable if you are willing to hard-code an
+absolute path, or build the source with <code>glue()</code> (see the
+next section) so the path is filled in when the DAG is built.</p>
+<p>In practice, for a compiled step the simplest answer is usually to
+keep the code in one file, and to reach for <code>depends</code> (C++)
+or <code>dependencies</code> (Rust) when what you want is a real library
+rather than a local helper.</p>
+</div>
+</div>
+<div id="a-note-on-building-code-with-glue" class="section level2">
+<h2>A note on building code with <code>glue()</code></h2>
+<p>Inline code is often assembled with <code>glue::glue()</code>. That
+runs when <code>_targets.R</code> is <em>sourced</em>, i.e. when the
+pipeline’s DAG is built, not when the step runs. It can therefore use
+ordinary R objects in scope at that moment, but it cannot see the
+<em>values</em> of upstream targets: those only exist while the pipeline
+is running.</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a><span class="co"># known when _targets.R is sourced by being put on top of the _targets.R file </span></span>
+<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a><span class="co"># or in a R file sourced by targets::tar_source() (see the targets documentation)</span></span>
+<span id="cb15-3"><a href="#cb15-3" tabindex="-1"></a><span class="co"># when targets::tar_make() is called.</span></span>
+<span id="cb15-4"><a href="#cb15-4" tabindex="-1"></a>measurement <span class="ot">&lt;-</span> <span class="st">&quot;flipper_length_mm&quot;</span></span>
+<span id="cb15-5"><a href="#cb15-5" tabindex="-1"></a></span>
+<span id="cb15-6"><a href="#cb15-6" tabindex="-1"></a><span class="fu">tar_target_py</span>(</span>
+<span id="cb15-7"><a href="#cb15-7" tabindex="-1"></a>  <span class="at">name =</span> py_mean,</span>
+<span id="cb15-8"><a href="#cb15-8" tabindex="-1"></a>  <span class="at">inputs =</span> <span class="fu">c</span>(<span class="at">df =</span> <span class="st">&quot;penguins&quot;</span>),</span>
+<span id="cb15-9"><a href="#cb15-9" tabindex="-1"></a>  <span class="at">pre_script =</span> <span class="fu">tar_code</span>({ to_py <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">df =</span> df) }),</span>
+<span id="cb15-10"><a href="#cb15-10" tabindex="-1"></a>  <span class="at">script =</span> <span class="fu">tar_code</span>(glue<span class="sc">::</span><span class="fu">glue</span>(<span class="st">&quot;result = float(df[&#39;{measurement}&#39;].mean())&quot;</span>)),</span>
+<span id="cb15-11"><a href="#cb15-11" tabindex="-1"></a>  <span class="at">retrieve =</span> <span class="st">&quot;result&quot;</span></span>
+<span id="cb15-12"><a href="#cb15-12" tabindex="-1"></a>)</span></code></pre></div>
+<p>Use <code>inputs</code> for anything that depends on upstream target
+values, and <code>glue()</code> only for things already known when the
+DAG is built.</p>
+</div>
+<div id="see-also" class="section level2">
+<h2>See also</h2>
+<p><code>?tar_code</code> and <code>?tar_target_path</code> for the
+argument reference, <code>vignette(&quot;python&quot;)</code> /
+<code>vignette(&quot;julia&quot;)</code> / <code>vignette(&quot;rust&quot;)</code> /
+<code>vignette(&quot;cpp&quot;)</code> for the per-language details, and
+<code>vignette(&quot;get_started&quot;)</code> for how the pieces fit
+together.</p>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
